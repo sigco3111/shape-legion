@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Shape Legion — 도형 군단</title>
+  <meta name="description" content="도형 군단 — 도형 병력을 그려 배치하고 자동으로 싸우는 수천 명 규모 웹 전략 게임">
+  <meta name="theme-color" content="#070b16">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="stylesheet" href="css/style.css?v=2026111101">
+</head>
+<body>
+  <div id="app">
+    <canvas id="view" role="img" aria-label="전투 화면" data-i18n-aria="a11y.canvas"></canvas>
+
+    <!-- start screen -->
+    <section id="menu" class="screen">
+      <div class="menu-card">
+        <div class="logo" aria-hidden="true"><i class="sh t0 b"></i><i class="sh t1 b"></i><i class="sh t2 b"></i><i class="sh t3 b"></i><i class="sh t4 b"></i><b>VS</b><i class="sh t4 r"></i><i class="sh t3 r"></i><i class="sh t2 r"></i><i class="sh t1 r"></i><i class="sh t0 r"></i></div>
+        <h1 data-i18n="title">Shape Legion — 도형 군단</h1>
+        <p class="tag" data-i18n="tagline"></p>
+        <h2 class="lbl" data-i18n="menu.preset"></h2>
+        <div id="presetBtns" class="seg" role="radiogroup"></div>
+        <button id="demoBtn" class="big" type="button" data-i18n="menu.demo"></button>
+        <div class="row">
+          <button id="menuSettings" type="button" data-i18n="menu.settings"></button>
+          <button id="menuCredits" type="button" data-i18n="menu.credits"></button>
+          <button id="menuLang" type="button" data-i18n="menu.lang"></button>
+        </div>
+        <p class="note" data-i18n="menu.note"></p>
+      </div>
+    </section>
+
+    <!-- battle HUD -->
+    <section id="hud" class="hidden">
+      <div id="topbar">
+        <button id="btnMenu" type="button" class="ic" data-i18n-title="hud.menu">☰</button>
+        <div class="tally blue" id="tallyBlue"><div class="tot"><span class="dot"></span><b id="totBlue">0</b></div><div class="chips" id="chipsBlue"></div></div>
+        <div class="mid"><div id="timer">0:00</div><div class="meter"><i id="meterBlue"></i><i id="meterRed"></i></div><div id="seedTxt" class="seed"></div></div>
+        <div class="tally red" id="tallyRed"><div class="tot"><b id="totRed">0</b><span class="dot"></span></div><div class="chips" id="chipsRed"></div></div>
+        <button id="btnSettings" type="button" class="ic" data-i18n-title="hud.settings">⚙</button>
+      </div>
+      <div id="controls">
+        <button id="btnPause" type="button" class="ic" data-i18n-title="hud.pause">⏸</button>
+        <div class="seg" id="speedBtns" role="radiogroup"><button type="button" data-speed="1" class="on">×1</button><button type="button" data-speed="2">×2</button><button type="button" data-speed="4">×4</button></div>
+        <button id="btnReplay" type="button" class="ic" data-i18n-title="hud.restart">⟲</button>
+        <button id="btnNew" type="button" class="ic" data-i18n-title="hud.newseed">🎲</button>
+        <button id="btnFit" type="button" class="ic" data-i18n-title="hud.fit">⌖</button>
+        <button id="btnFps" type="button" class="ic" data-i18n-title="hud.overlay">📊</button>
+        <select id="presetSel" aria-label="preset"></select>
+      </div>
+      <div id="help" data-i18n="hud.help"></div>
+    </section>
+
+    <div id="fps" class="hidden"></div>
+    <pre id="debug" class="hidden"></pre>
+
+    <!-- winner banner -->
+    <section id="banner" class="screen hidden" role="dialog" aria-live="polite">
+      <div class="menu-card">
+        <h1 id="bannerTitle"></h1><p id="bannerSub" class="tag"></p><p id="bannerStars" class="stars"></p>
+        <div class="row"><button id="bnReplay" type="button" class="big" data-i18n="banner.replay"></button><button id="bnNew" type="button" class="big" data-i18n="banner.new"></button><button id="bnMenu" type="button" class="big" data-i18n="banner.menu"></button></div>
+      </div>
+    </section>
+
+    <!-- settings -->
+    <section id="settings" class="screen hidden" role="dialog" aria-modal="true">
+      <div class="menu-card left">
+        <h1 data-i18n="set.title"></h1>
+        <label class="fld"><span data-i18n="set.lang"></span><div class="seg" id="setLang"><button type="button" data-lang="ko">한국어</button><button type="button" data-lang="en">English</button></div></label>
+        <label class="fld"><span data-i18n="set.cap"></span><select id="setCap"></select></label>
+        <p class="note" data-i18n="set.capnote"></p>
+        <label class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></label>
+        <label class="fld"><span data-i18n="set.volume"></span><input id="setVol" type="range" min="0" max="1" step="0.05"></label>
+        <label class="fld"><span data-i18n="set.motion"></span><input id="setShake" type="checkbox"></label>
+        <div class="row"><button id="setClose" type="button" class="big" data-i18n="set.close"></button></div>
+      </div>
+    </section>
+
+    <!-- credits -->
+    <section id="credits" class="screen hidden" role="dialog" aria-modal="true">
+      <div class="menu-card left">
+        <h1 data-i18n="credits.title"></h1>
+        <p data-i18n="credits.body"></p>
+        <p class="note"><a href="CREDITS.md" target="_blank" rel="noopener">CREDITS.md</a></p>
+        <div class="row"><button id="creditsClose" type="button" class="big" data-i18n="set.close"></button></div>
+      </div>
+    </section>
+
+    <section id="selftest" class="screen hidden"><pre id="selftestOut"></pre></section>
+    <div id="toast" class="hidden" role="status"></div>
+  </div>
+  <script type="module" src="js/main.js?v=2026111101"></script>
+</body>
+</html>
