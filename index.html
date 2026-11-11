@@ -5,30 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Shape Legion — 도형 군단</title>
   <meta name="description" content="도형 군단 — 도형 병력을 그려 배치하고 자동으로 싸우는 수천 명 규모 웹 전략 게임">
-  <meta name="theme-color" content="#070b16">
+  <meta name="theme-color" content="#0c0a06">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="css/style.css?v=2026111106">
+  <script>try{var c=localStorage.getItem('shapelegion.crt.v1');c=c==null?1:+c;document.documentElement.dataset.crt=(c===0||c===1||c===2)?c:1}catch(e){document.documentElement.dataset.crt=1}</script>
+  <link rel="preload" href="assets/kenney-pixel-square.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=2026111107">
 </head>
 <body>
   <div id="app">
     <canvas id="view" role="img" aria-label="전투 화면" data-i18n-aria="a11y.canvas"></canvas>
 
-    <!-- start screen -->
+    <!-- start screen: boot terminal -->
     <section id="menu" class="screen">
-      <div class="menu-card">
-        <div class="logo" aria-hidden="true"><i class="sh t0 b"></i><i class="sh t1 b"></i><i class="sh t2 b"></i><i class="sh t3 b"></i><i class="sh t4 b"></i><b>VS</b><i class="sh t4 r"></i><i class="sh t3 r"></i><i class="sh t2 r"></i><i class="sh t1 r"></i><i class="sh t0 r"></i></div>
-        <h1 data-i18n="title">Shape Legion — 도형 군단</h1>
-        <p class="tag" data-i18n="tagline"></p>
-        <h2 class="lbl" data-i18n="menu.preset"></h2>
-        <div id="presetBtns" class="seg" role="radiogroup"></div>
-        <button id="campaignBtn" class="big" type="button" data-i18n="menu.campaign"></button>
-        <button id="demoBtn" class="big alt" type="button" data-i18n="menu.demo"></button>
-        <div class="row">
-          <button id="menuSettings" type="button" data-i18n="menu.settings"></button>
-          <button id="menuCredits" type="button" data-i18n="menu.credits"></button>
-          <button id="menuLang" type="button" data-i18n="menu.lang"></button>
+      <div class="term">
+        <div class="term-main">
+          <div id="boot" class="boot" aria-hidden="true"></div>
+          <h1 class="logo-t" aria-label="Shape Legion"><span>SHAPE</span><span>LEGION</span></h1>
+          <p class="sub" data-i18n="menu.sub">도형 군단</p>
+          <p class="tag" data-i18n="tagline"></p>
+          <nav id="menuList" class="mlist" aria-label="menu">
+            <button id="campaignBtn" class="mi primary sel" type="button"><i class="no">01</i><span data-i18n="menu.campaign"></span></button>
+            <button id="demoBtn" class="mi" type="button"><i class="no">02</i><span data-i18n="menu.demo"></span></button>
+            <button id="menuSettings" class="mi" type="button"><i class="no">03</i><span data-i18n="menu.settings"></span></button>
+            <button id="menuCredits" class="mi" type="button"><i class="no">04</i><span data-i18n="menu.credits"></span></button>
+          </nav>
+          <h2 class="lbl" data-i18n="menu.preset"></h2>
+          <div id="presetBtns" class="seg" role="radiogroup"></div>
+          <p class="note" data-i18n="menu.note"></p>
+          <button id="menuLang" class="lang" type="button" data-tip="한국어 / English">LANG: <b>[KO]</b> EN</button>
         </div>
-        <p class="note" data-i18n="menu.note"></p>
+        <aside class="term-side">
+          <svg class="fig" viewBox="0 0 360 270" aria-hidden="true" focusable="false"><defs><symbol id="u0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7"/></symbol><symbol id="u1" viewBox="0 0 14 14"><rect width="14" height="14"/></symbol><symbol id="u2" viewBox="0 0 14 14"><polygon points="7,0 14,14 0,14"/></symbol><symbol id="u3" viewBox="0 0 14 14"><polygon points="7,0 14,7 7,14 0,7"/></symbol><symbol id="u4" viewBox="0 0 14 14"><polygon points="7,0 14,5 11,14 3,14 0,5"/></symbol></defs><rect class="fr" x="8.5" y="8.5" width="343" height="253"/><line class="ln" x1="180" y1="22" x2="180" y2="232"/><text x="40" y="26">BLUE LEGION</text><text x="320" y="26" text-anchor="end">RED LEGION</text><use href="#u1" class="b" x="148" y="68" width="14" height="14"/><use href="#u1" class="b" x="148" y="96" width="14" height="14"/><use href="#u1" class="b" x="148" y="124" width="14" height="14"/><use href="#u1" class="b" x="148" y="152" width="14" height="14"/><use href="#u1" class="b" x="148" y="180" width="14" height="14"/><use href="#u3" class="b" x="148" y="40" width="14" height="14"/><use href="#u3" class="b" x="148" y="208" width="14" height="14"/><use href="#u0" class="b" x="112" y="40" width="14" height="14"/><use href="#u0" class="b" x="112" y="68" width="14" height="14"/><use href="#u0" class="b" x="112" y="96" width="14" height="14"/><use href="#u0" class="b" x="112" y="124" width="14" height="14"/><use href="#u0" class="b" x="112" y="152" width="14" height="14"/><use href="#u0" class="b" x="112" y="180" width="14" height="14"/><use href="#u0" class="b" x="112" y="208" width="14" height="14"/><use href="#u2" class="b" x="76" y="68" width="14" height="14"/><use href="#u2" class="b" x="76" y="96" width="14" height="14"/><use href="#u2" class="b" x="76" y="124" width="14" height="14"/><use href="#u2" class="b" x="76" y="152" width="14" height="14"/><use href="#u2" class="b" x="76" y="180" width="14" height="14"/><use href="#u4" class="b" x="40" y="96" width="14" height="14"/><use href="#u4" class="b" x="40" y="152" width="14" height="14"/><use href="#u1" class="r" x="198" y="68" width="14" height="14"/><use href="#u1" class="r" x="198" y="96" width="14" height="14"/><use href="#u1" class="r" x="198" y="124" width="14" height="14"/><use href="#u1" class="r" x="198" y="152" width="14" height="14"/><use href="#u1" class="r" x="198" y="180" width="14" height="14"/><use href="#u3" class="r" x="198" y="40" width="14" height="14"/><use href="#u3" class="r" x="198" y="208" width="14" height="14"/><use href="#u0" class="r" x="234" y="40" width="14" height="14"/><use href="#u0" class="r" x="234" y="68" width="14" height="14"/><use href="#u0" class="r" x="234" y="96" width="14" height="14"/><use href="#u0" class="r" x="234" y="124" width="14" height="14"/><use href="#u0" class="r" x="234" y="152" width="14" height="14"/><use href="#u0" class="r" x="234" y="180" width="14" height="14"/><use href="#u0" class="r" x="234" y="208" width="14" height="14"/><use href="#u2" class="r" x="270" y="68" width="14" height="14"/><use href="#u2" class="r" x="270" y="96" width="14" height="14"/><use href="#u2" class="r" x="270" y="124" width="14" height="14"/><use href="#u2" class="r" x="270" y="152" width="14" height="14"/><use href="#u2" class="r" x="270" y="180" width="14" height="14"/><use href="#u4" class="r" x="306" y="96" width="14" height="14"/><use href="#u4" class="r" x="306" y="152" width="14" height="14"/><text x="40" y="252">FIG.01 // 5 TYPES x 2 SIDES</text></svg>
+        </aside>
       </div>
     </section>
 
@@ -99,12 +107,12 @@
         <button id="btnSettings" type="button" class="ic" data-i18n-title="hud.settings">⚙</button>
       </div>
       <div id="controls">
-        <button id="btnPause" type="button" class="ic" data-i18n-title="hud.pause">⏸</button>
+        <button id="btnPause" type="button" class="ic" data-i18n-title="hud.pause">II</button>
         <div class="seg" id="speedBtns" role="radiogroup"><button type="button" data-speed="1" class="on">×1</button><button type="button" data-speed="2">×2</button><button type="button" data-speed="4">×4</button></div>
         <button id="btnReplay" type="button" class="ic" data-i18n-title="hud.restart">⟲</button>
-        <button id="btnNew" type="button" class="ic" data-i18n-title="hud.newseed">🎲</button>
+        <button id="btnNew" type="button" class="ic" data-i18n-title="hud.newseed">NEW</button>
         <button id="btnFit" type="button" class="ic" data-i18n-title="hud.fit">⌖</button>
-        <button id="btnFps" type="button" class="ic" data-i18n-title="hud.overlay">📊</button>
+        <button id="btnFps" type="button" class="ic" data-i18n-title="hud.overlay">FPS</button>
         <select id="presetSel" aria-label="preset"></select>
       </div>
       <div id="skills" class="hidden" role="group"></div>
@@ -126,10 +134,11 @@
     <section id="settings" class="screen hidden" role="dialog" aria-modal="true">
       <div class="menu-card left">
         <h1 data-i18n="set.title"></h1>
-        <label class="fld"><span data-i18n="set.lang"></span><div class="seg" id="setLang"><button type="button" data-lang="ko">한국어</button><button type="button" data-lang="en">English</button></div></label>
+        <div class="fld"><span data-i18n="set.lang"></span><div class="seg" id="setLang"><button type="button" data-lang="ko">한국어</button><button type="button" data-lang="en">English</button></div></div>
         <label class="fld"><span data-i18n="set.cap"></span><select id="setCap"></select></label>
         <p class="note" data-i18n="set.capnote"></p>
-        <label class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></label>
+        <div class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></div>
+        <div class="fld"><span data-i18n="set.crt"></span><div class="seg" id="setCrt"><button type="button" data-crt="0" data-i18n="set.crt.0"></button><button type="button" data-crt="1" data-i18n="set.crt.1"></button><button type="button" data-crt="2" data-i18n="set.crt.2"></button></div></div>
         <label class="fld"><span data-i18n="set.volume"></span><input id="setVol" type="range" min="0" max="1" step="0.05"></label>
         <label class="fld"><span data-i18n="set.sfx"></span><input id="setSfx" type="range" min="0" max="1" step="0.05"></label>
         <label class="fld"><span data-i18n="set.music"></span><input id="setMus" type="range" min="0" max="1" step="0.05"></label>
@@ -155,6 +164,7 @@
     <section id="selftest" class="screen hidden"><pre id="selftestOut"></pre></section>
     <div id="toast" class="hidden" role="status"></div>
   </div>
-  <script type="module" src="js/main.js?v=2026111106"></script>
+  <div id="crt" aria-hidden="true"></div>
+  <script type="module" src="js/main.js?v=2026111107"></script>
 </body>
 </html>
