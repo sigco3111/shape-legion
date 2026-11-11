@@ -29,7 +29,7 @@
 - 목표: 가장 가까운 적(`PREF` 가중), 유닛마다 임의 위상으로 12틱마다 재탐색, 목표 사망 시 즉시. 주변에 적이 없으면 무작위 적 표본 쪽으로 전진.
 - 이동/분리: 속도 보간 + 질량 가중 위치 보정(이웃 푸시는 같은 시작점에서 합산 후 상한 → 처리 순서 편향 없음). 처리 순서는 매 틱 Fisher–Yates 셔플.
 - 공격: 근접(즉시), 화살(유도 투사체), 투석(포물선, 착탄 시 범위 피해). 투사체·이벤트는 풀(`PCAP=4000`, `EVCAP=6000`).
-- 지형 훅: `sim.blocked`(50 단위 거친 격자, 32열) — 이동 시 막힘 검사. 렌더러 `drawTerrain`이 같은 배열을 그림. 강/다리/벽은 이후 라운드.
+- 지형(1e, `js/terrain.js`): 스테이지 데이터 `terrain: { river:{c0,c1,bridges:[[r0,r1]]}, walls:[[c0,r0,c1,r1]], hills:[...] }`(25 단위 거친 격자 64×36) → `sim.setTerrain()`이 `sim.blocked`(비트0 = 물/벽 통행 불가, 비트1 = 벽)를 받음. 이동 시 막힌 칸이면 축별 미끄러짐. 이동 목표까지 직선이 막히면(재탐색 때 `losFlags`로 갱신) 전투 시작 때 한 번 만든 팀별 흐름 지도(적 시작 칸에서의 8방향 경로 거리 → 하강 방향)를 따라 이동. 궁수는 벽이 사이에 있으면 발사하지 않고 돌아가며, 화살은 벽 칸에서 사라짐(강은 통과, 투석 포물선은 벽을 넘음). 언덕 위 궁수·투석기 사거리 ×1.25.
 - 결정론: `js/rng.js`(mulberry32) 시드 하나로 전투 전체가 재현됨. 시드는 HUD에 표시, `?seed=N`.
 - 전투 종료: 한쪽 전멸. 300초 초과 시 남은 가치로 판정.
 
@@ -53,13 +53,14 @@
 - 현재 외부 에셋 없음(모두 코드로 그림/합성). 추가 시 https://github.com/sigco3111/game-asset-catalog 에서 CC0, CC-BY, MIT, GPL 2.0/3.0만 사용. CC-BY는 `CREDITS.md`와 게임 내 크레딧 화면에 표기.
 
 ## 8. 파일 구조(얕게 유지)
-`index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,audio,rng,selftest,stagetest,stages,deploy,upgrades,skills}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
+`index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,audio,rng,selftest,stagetest,stages,deploy,upgrades,skills,terrain,terraintest}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
 캐시 무효화: `index.html`과 모든 `js/*.js` import의 `?v=<번호>`를 **한꺼번에 같은 값으로** 올린다(예: `2026111101`; 모듈마다 값이 다르면 같은 파일이 두 번 로드됨).
 
 ## 9. 자체 테스트 (`js/selftest.js`)
 - 브라우저 `?selftest=1`(`&full=1` 확장), Node `node js/selftest.js [full]`.
 - 출력: 600v600 혼성 5시드 승률/전투 시간(90초 미만 확인), 5×5 유닛 상성표(동일 비용, 진영 교대), 1000v1000 틱당 시뮬 ms.
 
+- 지형 검증: `node js/terraintest.js [시드 수]` (지형 안 유닛 0 · 다리 하나짜리 강 600v600이 90초 안에 종료 · 벽 화살 차단 · 1000v1000 평지 vs 강 틱당 ms).
 - 스테이지 검증: `node js/stagetest.js [시드 수] [스테이지|all]` (자동 배치 승률 · 병사 덩어리 승률 · 최대 전투 시간), `... 1 1 skills`로 스킬 효과(일제 사격/돌격은 같은 시드에서 3초 뒤 적 체력 비교, 집결은 목표 지점까지 평균 거리).
 
 ## 10. 로드맵
@@ -83,5 +84,11 @@
   - [x] 지휘관 스킬 `js/skills.js` + `sim.castRally/castVolley/castCharge`(수치는 `units.js`의 `SK`): 집결(3회/12초) · 일제 사격(2회/20초, 해금: 지휘 1단계) · 돌격(2회/25초, 해금: 지휘 2단계). 쿨다운은 시뮬레이션 시간 기준, HUD 버튼에 표시, 키 `1` `2` `3`(캠페인 배속은 `4` `5` `6`), 터치 버튼, 집결은 버튼 후 지점 탭
   - [x] 해금은 `upgrades.js`의 `CMD_SKILLS`(지휘 가지 노드 수)로 판정 — 저장 형식 변경 없음(v2 유지). 옛 저장에서 3번 스테이지를 이미 클리어했다면 4번 자동 해금
   - [x] 스킬 효과: `render.skillFx`(기존 링·파티클 풀 사용). 적은 스킬을 쓰지 않음. 지형·소리·신규 유닛은 없음
-- **1e(제안)**: 지형(강·다리·벽, `sim.blocked` 훅 활용)과 그에 맞춘 스테이지/배치 제한.
+- **1e** (진행 체크리스트):
+  - [x] `js/terrain.js` 지형 데이터(강·다리·벽·언덕), `sim.setTerrain` + 흐름 지도 + 직선 시야 검사, 벽의 화살 차단, 지형 안 유닛 0 (`node js/terraintest.js`)
+  - [x] 렌더: 물(타일 + 느린 반짝임 오버레이)·다리(판자)·돌벽(부드러운 그림자)·언덕은 정적 배경에 사전 렌더, 프레임당 비용은 반짝임뿐
+  - [x] 배치: 물·벽 칸 칠하기 금지(빨간 칸), 적 진형도 지형 회피
+  - [x] 스테이지 4~8에 지형 추가, 스테이지 9(다리 2 + 궁수 언덕)·10(최종) 추가 → 총 10개, 템플릿 배치는 막힌 칸을 피하도록 수정
+  - [x] i18n ko/en, 스테이지 목록에 지형 라벨(🌊🌉🧱⛰). 소리·신규 유닛 없음
+- **1f(제안)**: 효과음/음악(카탈로그 에셋 + 크레딧)과 시각 다듬기.
 - **2**: 사기/패주, 지형 버프, 효과음/음악(카탈로그 에셋), 미니맵, 크레딧 화면 완성.
