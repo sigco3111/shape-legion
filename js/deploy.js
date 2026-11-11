@@ -1,11 +1,14 @@
 // Deploy phase logic (no DOM): snapped grid painting, budget/population limits, undo, sim filling, canvas overlay.
-import { UNITS, NT, ARENA } from './units.js?v=2026111104';
-import { GRID, gridX, gridY, enemyCells } from './stages.js?v=2026111104';
+import { UNITS, NT, ARENA } from './units.js?v=2026111105';
+import { GRID, gridX, gridY, enemyCells, deployBlocked } from './stages.js?v=2026111105';
+import { terrainFor } from './terrain.js?v=2026111105';
 
 export class Deploy {
   constructor(stage, cells) {
     this.stage = stage;
     this.cells = cells ? Int8Array.from(cells) : new Int8Array(GRID.cols * GRID.rows).fill(-1);
+    this.blk = deployBlocked(stage); this.blockHit = false; // terrain: cells on water / walls cannot hold units
+    if (this.blk) for (let i = 0; i < this.cells.length; i++) if (this.blk[i]) this.cells[i] = -1;
     this.counts = new Int32Array(NT); this.cost = 0; this.pop = 0;
     for (const v of this.cells) if (v >= 0) { this.counts[v]++; this.cost += UNITS[v].cost; this.pop++; }
     this.type = 0; this.brush = 1; this.erase = false;
@@ -33,6 +36,7 @@ export class Deploy {
       if (cc < 0 || rr < 0 || cc >= GRID.cols || rr >= GRID.rows) continue;
       const i = rr * GRID.cols + cc, o = this.cells[i];
       if (this.erase) { if (o >= 0) this.set(i, -1); }
+      else if (this.blk && this.blk[i]) this.blockHit = true;
       else if (o !== this.type) { if (this.canPlace(this.type, o)) this.set(i, this.type); else this.limitHit = true; }
     }
   }
@@ -64,6 +68,7 @@ export class Deploy {
 
 // Fill a Sim with the stage's enemy (team 1) and the painted formation (team 0). Deterministic for a given seed.
 export function fillSim(sim, stage, dep) {
+  sim.setTerrain(terrainFor(stage));
   for (const u of enemyCells(stage)) sim.spawn(1, u.type, u.x, u.y);
   for (const u of dep.units()) sim.spawn(0, u.type, u.x, u.y);
   return sim;
@@ -88,6 +93,10 @@ export function drawOverlay(c, dep, hover, zoom) {
     for (let j = 0; j <= g.rows; j++) { const y = g.y0 + j * g.cell; c.moveTo(g.x0, y); c.lineTo(g.x0 + g.cols * g.cell, y); }
     c.stroke();
   }
+  if (dep.blk) { // blocked deploy cells (water / walls) are shown as invalid
+    c.fillStyle = 'rgba(255,50,60,0.2)';
+    for (let r = 0; r < g.rows; r++) for (let q = 0; q < g.cols; q++) if (dep.blk[r * g.cols + q]) c.fillRect(g.x0 + q * g.cell, g.y0 + r * g.cell, g.cell, g.cell);
+  }
   if (hover) {
     const p = dep.cellAt(hover[0], hover[1]);
     if (p) {
@@ -96,6 +105,10 @@ export function drawOverlay(c, dep, hover, zoom) {
       c.fillStyle = dep.erase ? 'rgba(255,90,106,0.25)' : 'rgba(255,255,255,0.18)'; c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 1.5 / zoom;
       c.fillRect(g.x0 + c0 * g.cell, g.y0 + r0 * g.cell, (c1 - c0) * g.cell, (r1 - r0) * g.cell);
       c.strokeRect(g.x0 + c0 * g.cell, g.y0 + r0 * g.cell, (c1 - c0) * g.cell, (r1 - r0) * g.cell);
+      if (dep.blk && !dep.erase) {
+        c.fillStyle = 'rgba(255,40,50,0.55)';
+        for (let r = r0; r < r1; r++) for (let q = c0; q < c1; q++) if (dep.blk[r * g.cols + q]) c.fillRect(g.x0 + q * g.cell, g.y0 + r * g.cell, g.cell, g.cell);
+      }
     }
   }
 }

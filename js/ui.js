@@ -1,10 +1,11 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111104';
-import { PRESETS } from './formation.js?v=2026111104';
-import { NT, UNITS } from './units.js?v=2026111104';
-import { STAGES, enemyCounts } from './stages.js?v=2026111104';
-import { SKILLS, cooldownLeft } from './skills.js?v=2026111104';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111104';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111105';
+import { PRESETS } from './formation.js?v=2026111105';
+import { NT, UNITS } from './units.js?v=2026111105';
+import { STAGES, enemyCounts } from './stages.js?v=2026111105';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111105';
+import { terrainFor, TERR_ICON } from './terrain.js?v=2026111105';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111105';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
@@ -65,7 +66,8 @@ export function createUI(h) {
       const es = effStage(st, md), locked = i + 1 > save.unlocked, b = document.createElement('button');
       b.type = 'button'; b.className = 'stage' + (locked ? ' locked' : ''); b.disabled = locked;
       const n = save.stars[i];
-      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap, r: st.rec })}${!locked && es.budget < st.rec * 0.85 ? ` · <span class="low">⚠ ${t('stage.low')}</span>` : ''}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
+      const tr = terrainFor(st), tl = tr ? `<span class="terr" title="${t('terr.label')}">${tr.tags.map((k) => TERR_ICON[k] + ' ' + t('terr.' + k)).join(' · ')}</span> · ` : '';
+      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : tl + t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap, r: st.rec })}${!locked && es.budget < st.rec * 0.85 ? ` · <span class="low">⚠ ${t('stage.low')}</span>` : ''}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
       b.onclick = () => h.onStagePick(i);
       box.appendChild(b);
     });
@@ -178,7 +180,7 @@ export function createUI(h) {
   $('upgradesBtn').onclick = () => h.onUpgrades(); $('resUpg').onclick = () => h.onUpgrades(); $('upBack').onclick = () => h.onUpgradesBack();
   ui.setDeploy = (st, idx) => {
     $('dStage').textContent = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
-    $('dDesc').textContent = t('stage.' + st.id + '.desc');
+    { const tr = terrainFor(st); $('dDesc').textContent = (tr ? tr.tags.map((k) => TERR_ICON[k] + ' ' + t('terr.' + k)).join(' · ') + ' — ' : '') + t('stage.' + st.id + '.desc'); }
     const ec = enemyCounts(st); $('dEnemy').innerHTML = ec.map((n, ty) => (n ? `<span class="chip" title="${t('unit.' + ty)}"><i class="sh t${ty} r"></i><span>${n}</span></span>` : '')).join('');
   };
   ui.showResult = (r) => {

@@ -1,6 +1,7 @@
 // Headless simulation core: structure-of-arrays, spatial hashing, fixed timestep.
-import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE, SK } from './units.js?v=2026111104';
-import { RNG } from './rng.js?v=2026111104';
+import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE, SK } from './units.js?v=2026111105';
+import { RNG } from './rng.js?v=2026111105';
+import { TC, TCOLS, TROWS, M_WALL, HILL_RANGE } from './terrain.js?v=2026111105';
 
 const F = (k) => Float32Array.from(UNITS.map((u) => u[k]));
 const HP = F('hp').map((v) => v * HP_SCALE), DMG = F('dmg'), CD = F('cd'), RANGE = F('range'), MINR = F('minRange');
@@ -61,7 +62,9 @@ export class Sim {
     this.g = makeGrid(CELL, cap); this.tg = [makeGrid(TCELL, cap), makeGrid(TCELL, cap)];
     this.mods = [null, null]; // per-team upgrade modifiers (upgrades.js buildMods); null = base balance
     this.adj = new Uint8Array(cap); // shield wall: square with a friendly square touching
-    this.blocked = null; // hook: Uint8Array over a coarse grid (terrain, later rounds)
+    this.blocked = null; this.hill = null; this.anyWall = false; this.flowReady = false; // terrain (setTerrain): 25-unit mask, bit0 impassable, bit1 wall
+    this.flowX = [null, null]; this.flowY = [null, null]; // per team: unit direction toward the enemy side on the coarse grid
+    this.los = new Uint8Array(cap); // per unit, refreshed on retarget: bit0 path to target blocked, bit1 a wall blocks shots
     // projectiles (pooled)
     this.pn = 0;
     this.pAlive = new Uint8Array(PCAP); this.pKind = new Uint8Array(PCAP); this.pTeam = new Uint8Array(PCAP); this.pSrc = new Uint8Array(PCAP);
@@ -77,6 +80,53 @@ export class Sim {
   }
 
   setMods(team, m) { this.mods[team] = m; }
+  setTerrain(t) { this.blocked = t ? t.mask : null; this.hill = t && t.hasHill ? t.hill : null; this.anyWall = !!(t && t.hasWall); this.flowReady = false; }
+
+  // Flags for the segment a->b sampled every ~12 units: bit0 = water/wall in the way (walking), bit1 = wall in the way (arrows).
+  losFlags(ax, ay, bx, by) {
+    const m = this.blocked, dx = bx - ax, dy = by - ay, n = Math.min(160, Math.ceil(Math.sqrt(dx * dx + dy * dy) / 12));
+    let f = 0;
+    for (let k = 1; k < n; k++) {
+      const q = m[(((ay + dy * k / n) / TC) | 0) * TCOLS + (((ax + dx * k / n) / TC) | 0)];
+      if (q) { f |= 1; if (q & M_WALL) return 3; }
+    }
+    return f;
+  }
+  // Flow field per team, built once per battle: path distance (8-neighbour, no corner cutting) from the cells the enemy starts in,
+  // turned into a smoothed downhill direction per cell. Used only while the straight line to the target is blocked.
+  buildFlow() {
+    const m = this.blocked, N = TCOLS * TROWS, INF = 1e9, q = new Int32Array(N * 8), nb = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [-1, 1, 1.414], [1, -1, 1.414], [-1, -1, 1.414]];
+    for (let team = 0; team < 2; team++) {
+      const d = new Float32Array(N).fill(INF); let qh = 0, qt = 0;
+      for (let i = 0; i < this.n; i++) {
+        if (!this.alive[i] || this.team[i] === team) continue;
+        const c = Math.min(N - 1, Math.max(0, ((this.y[i] / TC) | 0) * TCOLS + ((this.x[i] / TC) | 0)));
+        if (!m[c] && d[c] > 0) { d[c] = 0; q[qt++] = c; }
+      }
+      while (qh < qt && qt < q.length - 8) { // label-correcting relaxation (tiny grid)
+        const c = q[qh++], cx = c % TCOLS, cy = (c / TCOLS) | 0;
+        for (const [ox, oy, w] of nb) {
+          const nx = cx + ox, ny = cy + oy; if (nx < 0 || ny < 0 || nx >= TCOLS || ny >= TROWS) continue;
+          const j = ny * TCOLS + nx; if (m[j]) continue;
+          if (ox && oy && (m[cy * TCOLS + nx] || m[ny * TCOLS + cx])) continue;
+          if (d[c] + w < d[j]) { d[j] = d[c] + w; q[qt++] = j; }
+        }
+      }
+      const fx = new Float32Array(N), fy = new Float32Array(N);
+      for (let c = 0; c < N; c++) {
+        if (m[c] || d[c] >= INF || d[c] === 0) continue;
+        const cx = c % TCOLS, cy = (c / TCOLS) | 0; let vx = 0, vy = 0;
+        for (const [ox, oy, w] of nb) {
+          const nx = cx + ox, ny = cy + oy; if (nx < 0 || ny < 0 || nx >= TCOLS || ny >= TROWS) continue;
+          const j = ny * TCOLS + nx; if (m[j] || d[j] >= INF) continue;
+          const g = d[c] - d[j]; if (g > 0) { vx += g * ox / w; vy += g * oy / w; }
+        }
+        const l = Math.sqrt(vx * vx + vy * vy); if (l > 1e-6) { fx[c] = vx / l; fy[c] = vy / l; }
+      }
+      this.flowX[team] = fx; this.flowY[team] = fy;
+    }
+    this.flowReady = true;
+  }
 
   spawn(team, type, x, y) {
     if (this.n >= this.cap) return -1;
@@ -225,6 +275,7 @@ export class Sim {
         } else {
           this.pVX[p] = dx / d * ARROW_SPEED; this.pVY[p] = dy / d * ARROW_SPEED;
           this.pX[p] += this.pVX[p] * DT; this.pY[p] += this.pVY[p] * DT;
+          if (this.anyWall && (this.blocked[(Math.max(0, Math.min(TROWS - 1, (this.pY[p] / TC) | 0))) * TCOLS + Math.max(0, Math.min(TCOLS - 1, (this.pX[p] / TC) | 0))] & M_WALL)) { this.freeP(p); continue; } // walls stop arrows (rivers do not; lobbed boulders fly over)
           if (this.pT[p] > this.pDur[p]) this.freeP(p);
         }
       }
@@ -288,7 +339,8 @@ export class Sim {
     buildGrid(this.tg[0], this.tl[0], this.tn[0], x, y);
     buildGrid(this.tg[1], this.tl[1], this.tn[1], x, y);
     const g = this.g, gc = g.cols, gr = g.rows, gs = g.start, gi = g.items, gcell = g.cell;
-    const tick = this.tick, W = this.w, H = this.h, blocked = this.blocked;
+    const blocked = this.blocked; if (blocked && !this.flowReady) this.buildFlow();
+    const tick = this.tick, W = this.w, H = this.h;
 
     // random visiting order (Fisher-Yates) so no side/position gets a first-mover edge
     const ordA = this.ord;
@@ -298,14 +350,15 @@ export class Sim {
       if (!alive[i]) continue;
       const t = type[i], tm = team[i], m = this.mods[tm];
       let dmgM = m ? m.dmg[t] : 1, spdM = m ? m.spd[t] : 1;
-      const rngM = m ? m.rng[t] : 1;
+      let rngM = m ? m.rng[t] : 1;
+      if (this.hill && RANGE[t] > 0 && this.hill[((y[i] / TC) | 0) * TCOLS + ((x[i] / TC) | 0)]) rngM *= HILL_RANGE;
       if (rt[i] > 0) { rt[i] -= DT; spdM += SK.rallySpd; }
       if (ct[i] > 0) { ct[i] -= DT; spdM += SK.chargeSpd; dmgM *= 1 + SK.chargeDmg; }
       if (cd[i] > 0) cd[i] -= DT;
       if (chg[i] > 0) chg[i] -= DT;
       if (flash[i] > 0) flash[i]--;
       let tg = tgt[i];
-      if (tg < 0 || !alive[tg] || (this.phase[i] + tick) % RETARGET === 0) { tg = this.findTarget(i); tgt[i] = tg; }
+      if (tg < 0 || !alive[tg] || (this.phase[i] + tick) % RETARGET === 0) { tg = this.findTarget(i); tgt[i] = tg; if (blocked) this.los[i] = tg >= 0 ? this.losFlags(x[i], y[i], x[tg], y[tg]) : 0; }
       let dvx = 0, dvy = 0, faceX = 0, faceY = 0;
       if (tg >= 0) {
         const dx = x[tg] - x[i], dy = y[tg] - y[i], d = Math.sqrt(dx * dx + dy * dy) + 1e-6;
@@ -314,8 +367,11 @@ export class Sim {
         if (ranged && d < MINR[t]) ranged = false;
         reach = ranged ? RANGE[t] * rngM * 0.94 : contact;
         faceX = dx / d; faceY = dy / d;
-        if (d > reach) { dvx = faceX * SPEED[t] * spdM; dvy = faceY * SPEED[t] * spdM; }
-        else if (cd[i] <= 0) {
+        const lf = blocked ? this.los[i] : 0;
+        if (d > reach || ((lf & 2) && KIND[t] === ATK.ARROW && ranged)) { // walk (around terrain via the flow field when the straight line is blocked)
+          dvx = faceX * SPEED[t] * spdM; dvy = faceY * SPEED[t] * spdM;
+          if (lf & 1) { const fi = ((y[i] / TC) | 0) * TCOLS + ((x[i] / TC) | 0), ffx = this.flowX[tm][fi], ffy = this.flowY[tm][fi]; if (ffx !== 0 || ffy !== 0) { dvx = ffx * SPEED[t] * spdM; dvy = ffy * SPEED[t] * spdM; } }
+        } else if (cd[i] <= 0) {
           cd[i] = CD[t] * (0.9 + 0.2 * rng.next());
           if (!ranged) {
             let bonus = 1;
@@ -369,7 +425,12 @@ export class Sim {
       nx += sx; ny += sy;
       const r = ri;
       nx = nx < r ? r : nx > W - r ? W - r : nx; ny = ny < r ? r : ny > H - r ? H - r : ny;
-      if (blocked && blocked[((ny / 50) | 0) * 32 + ((nx / 50) | 0)]) { nx = x[i]; ny = y[i]; }
+      if (blocked) { nx = Math.fround(nx); ny = Math.fround(ny); } // x/y are Float32: test the stored value, not the double
+      if (blocked && blocked[((ny / TC) | 0) * TCOLS + ((nx / TC) | 0)]) { // terrain: slide along the obstacle, else stay
+        if (!blocked[((y[i] / TC) | 0) * TCOLS + ((nx / TC) | 0)]) ny = y[i];
+        else if (!blocked[((ny / TC) | 0) * TCOLS + ((x[i] / TC) | 0)]) nx = x[i];
+        else { nx = x[i]; ny = y[i]; vx[i] = vy[i] = 0; }
+      }
       x[i] = nx; y[i] = ny;
       if (faceX !== 0 || faceY !== 0) ang[i] = Math.atan2(faceY, faceX);
       else if (vx[i] * vx[i] + vy[i] * vy[i] > 4) ang[i] = Math.atan2(vy[i], vx[i]);

@@ -1,17 +1,18 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111104';
-import { DT, NT, UNITS } from './units.js?v=2026111104';
-import { PRESETS, setupBattle } from './formation.js?v=2026111104';
-import { Renderer } from './render.js?v=2026111104';
-import { createUI } from './ui.js?v=2026111104';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111104';
-import { newSeed } from './rng.js?v=2026111104';
-import * as audio from './audio.js?v=2026111104';
-import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111104';
-import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111104';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111104';
-import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111104';
-import { SK } from './units.js?v=2026111104';
+import { Sim } from './sim.js?v=2026111105';
+import { DT, NT, UNITS } from './units.js?v=2026111105';
+import { PRESETS, setupBattle } from './formation.js?v=2026111105';
+import { Renderer } from './render.js?v=2026111105';
+import { createUI } from './ui.js?v=2026111105';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111105';
+import { newSeed } from './rng.js?v=2026111105';
+import * as audio from './audio.js?v=2026111105';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111105';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111105';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111105';
+import { terrainFor } from './terrain.js?v=2026111105';
+import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111105';
+import { SK } from './units.js?v=2026111105';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -70,8 +71,8 @@ const ui = createUI({
   onHome: () => toMenu(),
   onRetry: () => startDeploy(G.camp.idx, G.camp.dep.cells),
   onNext: () => startDeploy(Math.min(STAGES.length - 1, G.camp.idx + 1)),
-  onPaintStart: (x, y) => { const d = G.camp.dep; d.begin(); d.paintAt(x, y); G.camp.hover = [x, y]; G.camp.dirty = true; },
-  onPaintMove: (a, b) => { const d = G.camp.dep; d.paintLine(a[0], a[1], b[0], b[1]); G.camp.hover = b; G.camp.dirty = true; },
+  onPaintStart: (x, y) => { const d = G.camp.dep; d.begin(); d.paintAt(x, y); G.camp.hover = [x, y]; G.camp.dirty = true; blockedToast(d); },
+  onPaintMove: (a, b) => { const d = G.camp.dep; d.paintLine(a[0], a[1], b[0], b[1]); G.camp.hover = b; G.camp.dirty = true; blockedToast(d); },
   onPaintEnd: () => { G.camp.dep.end(); G.camp.dirty = true; },
   onPaintCancel: () => { G.camp.dep.cancel(); G.camp.dirty = true; },
   onHover: (w) => { G.cursor = w; if (G.camp) { G.camp.hover = w; } },
@@ -97,6 +98,7 @@ const ui = createUI({
   },
 });
 
+function blockedToast(d) { if (d.blockHit) { d.blockHit = false; if (performance.now() - (G.blkToast || 0) > 1500) { G.blkToast = performance.now(); ui.toast(t('dep.blocked'), 1400); } } }
 function toMenu() {
   G.screen = 'menu'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('menu'); ui.buildPresets(); startAmbient();
 }
@@ -122,7 +124,7 @@ function startDeploy(idx, cells) {
   G.camp = { idx, st, dep, prevSim: sim, dirty: true, hover: null, lastVer: -1 };
   endSkills(); clearTimeout(G.ambientTimer); G.screen = 'deploy'; G.ambient = false; G.paused = false; G.speed = 1; G.bannerShown = false;
   ui.setCampaignHud(true); ui.setPaused(false); ui.setSpeed(1); ui.showScreen('deploy'); ui.setDeploy(st, idx);
-  G.sim = sim; G.seed = st.seed; G.acc = 0; R.clearFx();
+  G.sim = sim; G.seed = st.seed; G.acc = 0; R.clearFx(); R.setTerrain(terrainFor(st));
   R.overlay = (c) => drawOverlay(c, G.camp.dep, G.camp.hover, R.cam.zoom);
   fitView(); G.userCam = false;
 }
@@ -184,7 +186,7 @@ function newBattle(perSide, seed) {
   const sim = new Sim({ cap: 3200, seed, events: true });
   setupBattle(sim, perSide);
   G.sim = sim; G.seed = seed; G.perSide = perSide; G.acc = 0; G.history = []; G.nextLog = 5; G.bannerShown = false; G.simMs = 0; G.simTicks = 0;
-  R.clearFx();
+  R.clearFx(); R.setTerrain(null);
   return sim;
 }
 
@@ -292,7 +294,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111104').then(async (m) => {
+  import('./selftest.js?v=2026111105').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;

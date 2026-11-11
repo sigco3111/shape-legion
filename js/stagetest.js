@@ -1,10 +1,11 @@
 // Headless campaign check (Node): auto-generated layouts vs each stage at the expected upgrade level; skill sanity test.
 // Usage: node js/stagetest.js [seeds=8] [stage|all] [skills]
-import { Sim } from './sim.js?v=2026111104';
-import { UNITS, NT, T } from './units.js?v=2026111104';
-import { STAGES, GRID, rewardFor } from './stages.js?v=2026111104';
-import { defaultUp, buildMods, effStage, TECH, POP, statCost, MAXLV } from './upgrades.js?v=2026111104';
-import { Deploy, fillSim } from './deploy.js?v=2026111104';
+import { Sim } from './sim.js?v=2026111105';
+import { UNITS, NT, T } from './units.js?v=2026111105';
+import { STAGES, GRID, rewardFor, enemyCounts } from './stages.js?v=2026111105';
+import { defaultUp, buildMods, effStage, TECH, POP, statCost, MAXLV } from './upgrades.js?v=2026111105';
+import { Deploy, fillSim } from './deploy.js?v=2026111105';
+import { deployBlocked } from './stages.js?v=2026111105';
 
 // Purchase order of a typical player; stage N is tested with the gold earned in stages 1..N-1 spent in this order.
 const PLAN = ['pop', 'inf0', 'cmd0', 'pop', 'grd0', 'arc0', 'pop', 'st:1:0', 'st:2:1', 'cav0', 'sge0', 'inf1', 'pop', 'cmd1', 'grd1', 'arc1', 'st:0:0', 'st:3:1', 'sge1', 'cav1', 'pop', 'st:1:1', 'st:4:1', 'inf2', 'grd2', 'arc2', 'cmd2', 'pop'];
@@ -32,6 +33,7 @@ const TEMPLATES = {
   riders:   [0.2, 0.2, 0.2, 0.3, 0.1],
 };
 export function autoCells(st, share) {
+  const blk = deployBlocked(st);
   const cells = new Int8Array(GRID.cols * GRID.rows).fill(-1), B = st.budget, P = st.cap;
   const n = [0, 0, 0, 0, 0];
   for (let t = 0; t < NT; t++) n[t] = Math.floor(share[t] * B / UNITS[t].cost);
@@ -43,8 +45,12 @@ export function autoCells(st, share) {
   const R0 = 9, R1 = 53;
   let col = GRID.cols - 1;
   const fill = (t, cnt, c0, r0, r1) => { // column by column, centred
-    let c = c0; const h = r1 - r0 + 1;
-    while (cnt > 0 && c >= 0) { const k = Math.min(cnt, h), s = r0 + ((h - k) >> 1); for (let r = s; r < s + k; r++) cells[r * GRID.cols + c] = t; cnt -= k; c--; }
+    let c = c0;
+    while (cnt > 0 && c >= 0) { // free rows of this column (terrain-blocked cells skipped), centred
+      const rows = []; for (let r = r0; r <= r1; r++) if (!blk || !blk[r * GRID.cols + c]) rows.push(r);
+      const k = Math.min(cnt, rows.length), s = (rows.length - k) >> 1;
+      for (let j = s; j < s + k; j++) cells[rows[j] * GRID.cols + c] = t; cnt -= k; c--;
+    }
     return c;
   };
   const wing = n[3] >> 1;
@@ -55,9 +61,9 @@ export function autoCells(st, share) {
   fill(4, n[4], col, R0 + 8, R1 - 8);
   return cells;
 }
-export function circleBlock(st) { // everything into one block of circles (the lazy strategy)
-  const cells = new Int8Array(GRID.cols * GRID.rows).fill(-1); let n = Math.min(st.budget, st.cap), c = GRID.cols - 1;
-  while (n > 0) { const k = Math.min(n, 40); for (let r = 11; r < 11 + k; r++) cells[r * GRID.cols + c] = 0; n -= k; c--; }
+export function circleBlock(st) { // everything into one block of circles (the lazy strategy); blocked cells skipped
+  const blk = deployBlocked(st), cells = new Int8Array(GRID.cols * GRID.rows).fill(-1); let n = Math.min(st.budget, st.cap), c = GRID.cols - 1;
+  while (n > 0 && c >= 0) { let k = 0; for (let r = 11; r < GRID.rows && k < 40 && n > 0; r++) if (!blk || !blk[r * GRID.cols + c]) { cells[r * GRID.cols + c] = 0; k++; n--; } c--; }
   return cells;
 }
 
@@ -73,8 +79,7 @@ export function fight(stage, up, cells, seed, opt = {}) {
 export function evalStage(idx, seeds = 8, log = console.log) {
   const stage = STAGES[idx], { up, gold } = expectedUp(idx + 1), m = buildMods(up), st = effStage(stage, m);
   const res = { stage: idx + 1, gold, budget: st.budget, cap: st.cap, up: `pop${up.pop} tech${up.tech.join('')}`, templates: {}, circle: 0, maxT: 0 };
-  let ecost = 0; const ec = [0, 0, 0, 0, 0];
-  for (const q of stage.enemy) { const cnt = ((q.d1 - q.d0) / (q.sx || 1) + 1 | 0) * (((q.r1 - q.r0) / (q.sy || 1)) + 1 | 0); ec[q.t] += cnt; }
+  let ecost = 0; const ec = enemyCounts(stage);
   ec.forEach((c, t) => { ecost += c * UNITS[t].cost; });
   res.enemy = `${ec.join('/')} cost ${ecost}`;
   for (const [name, share] of Object.entries(TEMPLATES)) {

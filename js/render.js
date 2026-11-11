@@ -1,6 +1,7 @@
 // Canvas 2D renderer: sprite atlas, static background, batched drawImage, additive glow/bloom, pooled FX.
-import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111104';
-import { EV } from './sim.js?v=2026111104';
+import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111105';
+import { EV } from './sim.js?v=2026111105';
+import { TC, TCOLS, TROWS, K } from './terrain.js?v=2026111105';
 
 const TAU = Math.PI * 2, DIRS = 16, CELLW = 28; // atlas cell size in world units
 const MAXP = 7000, MAXR = 300;
@@ -79,6 +80,7 @@ export class Renderer {
     this.bloom = mk(8, 8); this.bctx = this.bloom.getContext('2d');
     this.fx = 2; this.bloomOn = true; this.shakeOn = !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.shake = 0; this.shx = 0; this.shy = 0;
+    this.terr = null; this.waterPath = null; this.shim = null; this.reduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
     // pooled particles
     this.pn = 0; this.pX = new Float32Array(MAXP); this.pY = new Float32Array(MAXP); this.pVX = new Float32Array(MAXP); this.pVY = new Float32Array(MAXP);
     this.pL = new Float32Array(MAXP); this.pM = new Float32Array(MAXP); this.pS = new Float32Array(MAXP); this.pC = new Uint8Array(MAXP);
@@ -94,6 +96,18 @@ export class Renderer {
     this.vw = cssW; this.vh = cssH;
     this.canvas.width = Math.max(1, Math.floor(cssW * this.dpr)); this.canvas.height = Math.max(1, Math.floor(cssH * this.dpr));
     this.bloom.width = Math.max(1, Math.ceil(this.canvas.width / 4)); this.bloom.height = Math.max(1, Math.ceil(this.canvas.height / 4));
+  }
+
+  // Terrain (null = none): pre-rendered into the static background; only the water shimmer overlay is animated.
+  setTerrain(t) {
+    if (t === this.terr) return;
+    this.terr = t; this.bgScale = 0; this.waterPath = null;
+    if (t && t.hasWater) {
+      const p = new Path2D(); let x0 = 1e9, y0 = 1e9, x1 = 0, y1 = 0;
+      for (let i = 0; i < t.kind.length; i++) if (t.kind[i] === K.WATER) { const x = (i % TCOLS) * TC, y = ((i / TCOLS) | 0) * TC; p.rect(x, y, TC, TC); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + TC); y1 = Math.max(y1, y + TC); }
+      this.waterPath = p; this.waterBox = [x0, y0, x1, y1];
+      if (!this.shim) this.shim = makeShimmerTile();
+    }
   }
 
   clearFx() { this.pn = 0; this.rn = 0; this.shake = 0; this.dctx.clearRect(0, 0, this.decal.width, this.decal.height); }
@@ -140,6 +154,7 @@ export class Renderer {
       c.stroke();
     }
     c.setLineDash([10, 8]); c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(W / 2, 0); c.lineTo(W / 2, H); c.stroke(); c.setLineDash([]);
+    if (this.terr) paintTerrain(c, this.terr, S, this.shim || (this.shim = makeShimmerTile()));
     // vignette + border
     g = c.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.62); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.45)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
     c.strokeStyle = 'rgba(140,180,255,0.35)'; c.lineWidth = 3; c.strokeRect(1.5, 1.5, W - 3, H - 3);
@@ -234,7 +249,7 @@ export class Renderer {
     c.drawImage(this.bg, 0, 0, ARENA.w, ARENA.h);
     c.drawImage(this.decal, 0, 0, ARENA.w, ARENA.h);
     if (this.overlay) this.overlay(c); // deploy-phase zones/grid/brush (world units)
-    if (sim.blocked) this.drawTerrain(c, sim); // hook for terrain (later rounds)
+    if (this.waterPath) this.drawShimmer(c);
     c.imageSmoothingQuality = 'low';
     // visible world rect
     const m = 16, vx0 = -ox / sc - m, vy0 = -oy / sc - m, vx1 = (cw - ox) / sc + m, vy1 = (ch - oy) / sc + m;
@@ -308,8 +323,72 @@ export class Renderer {
     this.stats.drawn = drawn; this.stats.particles = this.pn; this.stats.ms = performance.now() - t0;
   }
 
-  drawTerrain(c, sim) { // placeholder for blocked cells (50-unit coarse grid, 32 cols)
-    c.fillStyle = 'rgba(80,100,140,0.35)';
-    for (let i = 0; i < sim.blocked.length; i++) if (sim.blocked[i]) c.fillRect((i % 32) * 50, ((i / 32) | 0) * 50, 50, 50);
+  // Slow animated water highlights: a pre-rendered tile scrolled under a clip of the water cells (the only per-frame terrain cost).
+  drawShimmer(c) {
+    const tm = this.reduced ? 0 : performance.now() / 1000, [x0, y0, x1, y1] = this.waterBox, T = 128, ox = (tm * 7) % T, oy = (tm * 3) % T;
+    c.save(); c.clip(this.waterPath); c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.55 + 0.25 * Math.sin(tm * 0.8);
+    for (let y = Math.floor((y0 - oy) / T) * T + oy; y < y1; y += T) for (let x = Math.floor((x0 - ox) / T) * T + ox; x < x1; x += T) c.drawImage(this.shim, x, y, T, T);
+    c.restore();
   }
+}
+
+// ---- terrain painting (static background) ----
+function makeShimmerTile() { // seamless 128x128 tile of faint wave streaks
+  const t = mk(128, 128), c = t.getContext('2d'); let s = 777; const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  c.lineCap = 'round';
+  for (let k = 0; k < 14; k++) {
+    const y = rnd() * 128, x = rnd() * 128, len = 14 + rnd() * 26, a = 0.10 + rnd() * 0.16;
+    for (const dy of [-128, 0, 128]) for (const dx of [-128, 0, 128]) {
+      c.strokeStyle = `rgba(170,220,255,${a})`; c.lineWidth = 1.4; c.beginPath();
+      c.moveTo(x + dx, y + dy); c.quadraticCurveTo(x + dx + len / 2, y + dy - 3, x + dx + len, y + dy); c.stroke();
+    }
+  }
+  return t;
+}
+function paintTerrain(c, t, S, shim) {
+  const { kind } = t, at = (cx, cy) => (cx < 0 || cy < 0 || cx >= TCOLS || cy >= TROWS ? -1 : kind[cy * TCOLS + cx]);
+  const cells = (k, f) => { for (let i = 0; i < kind.length; i++) if (kind[i] === k) f((i % TCOLS) * TC, ((i / TCOLS) | 0) * TC, i % TCOLS, (i / TCOLS) | 0); };
+  // hills: raised plateaus with soft contour rings
+  cells(K.HILL, (x, y, cx, cy) => { c.fillStyle = 'rgba(110,150,90,0.20)'; c.fillRect(x, y, TC, TC); });
+  cells(K.HILL, (x, y, cx, cy) => {
+    c.lineWidth = 2.2; c.strokeStyle = 'rgba(200,235,160,0.55)'; c.beginPath();
+    if (at(cx, cy - 1) !== K.HILL) { c.moveTo(x, y); c.lineTo(x + TC, y); } if (at(cx, cy + 1) !== K.HILL) { c.moveTo(x, y + TC); c.lineTo(x + TC, y + TC); }
+    if (at(cx - 1, cy) !== K.HILL) { c.moveTo(x, y); c.lineTo(x, y + TC); } if (at(cx + 1, cy) !== K.HILL) { c.moveTo(x + TC, y); c.lineTo(x + TC, y + TC); }
+    c.stroke();
+    c.lineWidth = 1; c.strokeStyle = 'rgba(0,0,0,0.25)'; c.beginPath();
+    if (at(cx, cy + 1) !== K.HILL) { c.moveTo(x, y + TC + 3); c.lineTo(x + TC, y + TC + 3); } if (at(cx + 1, cy) !== K.HILL) { c.moveTo(x + TC + 3, y); c.lineTo(x + TC + 3, y + TC); }
+    c.stroke();
+  });
+  // water (also under bridges)
+  const wet = (k) => k === K.WATER || k === K.BRIDGE;
+  cells(K.WATER, (x, y) => { const g = c.createLinearGradient(x, y, x + TC, y + TC); g.addColorStop(0, '#15477a'); g.addColorStop(1, '#0d2f58'); c.fillStyle = g; c.fillRect(x, y, TC, TC); });
+  cells(K.BRIDGE, (x, y) => { c.fillStyle = '#0f3a66'; c.fillRect(x, y, TC, TC); });
+  c.save(); c.globalAlpha = 0.6; for (let y = 0; y < ARENA.h; y += 128) for (let x = 0; x < ARENA.w; x += 128) { c.save(); c.beginPath(); cells(K.WATER, (px, py) => { if (px < x + 128 && px + TC > x && py < y + 128 && py + TC > y) c.rect(px, py, TC, TC); }); c.clip(); c.drawImage(shim, x, y, 128, 128); c.restore(); } c.restore();
+  cells(K.WATER, (x, y, cx, cy) => { // shore: light foam line on the water edge, muddy bank outside
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const n = at(cx + dx, cy + dy); if (n === K.WATER || n === K.BRIDGE || n === -1) continue;
+      const hx = dx === 0, ex = dx > 0 ? x + TC : x, ey = dy > 0 ? y + TC : y;
+      c.fillStyle = 'rgba(200,235,255,0.35)'; hx ? c.fillRect(x, dy > 0 ? ey - 3 : ey, TC, 3) : c.fillRect(dx > 0 ? ex - 3 : ex, y, 3, TC);
+      c.fillStyle = 'rgba(105,88,60,0.40)'; hx ? c.fillRect(x, dy > 0 ? ey : ey - 5, TC, 5) : c.fillRect(dx > 0 ? ex : ex - 5, y, 5, TC);
+    }
+  });
+  // bridges: planks across, rails along the open sides, shadow on the water
+  cells(K.BRIDGE, (x, y, cx, cy) => {
+    if (at(cx, cy + 1) === K.WATER) { c.fillStyle = 'rgba(0,0,0,0.32)'; c.fillRect(x, y + TC, TC, 6); }
+    c.fillStyle = '#8c633a'; c.fillRect(x, y, TC, TC);
+    c.fillStyle = '#6d4a28'; for (let px = 0; px < TC; px += 6.25) c.fillRect(x + px, y, 1.4, TC);
+    c.fillStyle = 'rgba(255,220,160,0.18)'; for (let px = 0; px < TC; px += 6.25) c.fillRect(x + px + 1.6, y, 1, TC);
+    if (at(cx, cy - 1) !== K.BRIDGE) { c.fillStyle = '#3f2a18'; c.fillRect(x, y, TC, 4); c.fillStyle = 'rgba(255,220,160,0.3)'; c.fillRect(x, y, TC, 1.3); }
+    if (at(cx, cy + 1) !== K.BRIDGE) { c.fillStyle = '#3f2a18'; c.fillRect(x, y + TC - 4, TC, 4); c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(x, y + TC - 1.3, TC, 1.3); }
+  });
+  // walls: soft drop shadow pass, then stone blocks
+  c.save(); c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = 9 * S; c.shadowOffsetX = 3 * S; c.shadowOffsetY = 5 * S; c.fillStyle = '#4b505a';
+  cells(K.WALL, (x, y) => c.fillRect(x, y, TC, TC)); c.restore();
+  cells(K.WALL, (x, y, cx, cy) => {
+    const g = c.createLinearGradient(x, y, x + TC, y + TC); g.addColorStop(0, '#a4acb9'); g.addColorStop(1, '#5f6775');
+    c.fillStyle = g; c.beginPath(); c.roundRect ? c.roundRect(x + 0.7, y + 0.7, TC - 1.4, TC - 1.4, 3) : c.rect(x + 0.7, y + 0.7, TC - 1.4, TC - 1.4); c.fill();
+    c.strokeStyle = 'rgba(30,34,44,0.55)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x + 1, y + TC / 2); c.lineTo(x + TC - 1, y + TC / 2);
+    const o = (cx + cy) % 2 ? 7 : 16; c.moveTo(x + o, y + 1); c.lineTo(x + o, y + TC / 2); c.moveTo(x + TC - o, y + TC / 2); c.lineTo(x + TC - o, y + TC - 1); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.28)'; c.fillRect(x + 2, y + 1.5, TC - 4, 1.4); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(x + 2, y + TC - 2.8, TC - 4, 1.4);
+  });
 }
