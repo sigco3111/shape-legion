@@ -7,7 +7,7 @@
   <meta name="description" content="도형 군단 — 도형 병력을 그려 배치하고 자동으로 싸우는 수천 명 규모 웹 전략 게임">
   <meta name="theme-color" content="#070b16">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="css/style.css?v=2026111102">
+  <link rel="stylesheet" href="css/style.css?v=2026111103">
 </head>
 <body>
   <div id="app">
@@ -38,7 +38,18 @@
         <h1 data-i18n="stage.title"></h1>
         <p class="tag"><span data-i18n="stage.gold"></span> <b id="goldTxt" class="gold">0</b></p>
         <div id="stageList" class="stage-list"></div>
-        <div class="row"><button id="stagesBack" type="button" class="big alt" data-i18n="banner.menu"></button></div>
+        <div class="row"><button id="upgradesBtn" type="button" class="big" data-i18n="up.btn"></button><button id="stagesBack" type="button" class="big alt" data-i18n="banner.menu"></button></div>
+      </div>
+    </section>
+
+    <!-- upgrades -->
+    <section id="upgrades" class="screen hidden">
+      <div class="menu-card up-card">
+        <h1 data-i18n="up.title"></h1>
+        <p class="tag"><span data-i18n="up.gold"></span> <b id="upGold" class="gold">0</b></p>
+        <div class="seg" id="upTabs" role="tablist"><button type="button" data-tab="army" data-i18n="up.army"></button><button type="button" data-tab="tech" data-i18n="up.tech"></button></div>
+        <div id="upBody" class="up-body"></div>
+        <div class="row"><button id="upBack" type="button" class="big alt" data-i18n="up.back"></button></div>
       </div>
     </section>
 
@@ -55,9 +66,10 @@
         <button id="dFit" type="button" class="ic" data-i18n-title="hud.fit">⌖</button>
       </div>
       <div id="dPanel">
+        <div id="dInfo" class="dinfo2" aria-live="polite"></div>
         <div id="dUnits" class="units" role="radiogroup"></div>
         <div class="drow">
-          <div class="seg" id="dBrush" role="radiogroup"><button type="button" data-brush="1">1</button><button type="button" data-brush="2">2</button><button type="button" data-brush="3">3</button></div>
+          <div class="seg" id="dBrush" role="radiogroup"><button type="button" data-brush="1">1</button><button type="button" data-brush="2">2</button><button type="button" data-brush="3">3</button><button type="button" data-brush="4" id="dBrush4" class="hidden">4</button></div>
           <button id="dErase" type="button" data-i18n="dep.erase"></button>
           <button id="dUndo" type="button" data-i18n="dep.undo"></button>
           <button id="dClear" type="button" data-i18n="dep.clear"></button>
@@ -72,7 +84,7 @@
       <div class="menu-card">
         <h1 id="resTitle"></h1><p id="resSub" class="tag"></p><p id="resStars" class="stars"></p>
         <p id="resGold" class="gold big-gold"></p>
-        <div class="row"><button id="resRetry" type="button" class="big" data-i18n="res.retry"></button><button id="resNext" type="button" class="big" data-i18n="res.next"></button><button id="resMenu" type="button" class="big alt" data-i18n="banner.menu"></button></div>
+        <div class="row"><button id="resRetry" type="button" class="big" data-i18n="res.retry"></button><button id="resNext" type="button" class="big" data-i18n="res.next"></button><button id="resUpg" type="button" class="big" data-i18n="up.btn"></button><button id="resMenu" type="button" class="big alt" data-i18n="banner.menu"></button></div>
       </div>
     </section>
 
@@ -118,6 +130,8 @@
         <label class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></label>
         <label class="fld"><span data-i18n="set.volume"></span><input id="setVol" type="range" min="0" max="1" step="0.05"></label>
         <label class="fld"><span data-i18n="set.motion"></span><input id="setShake" type="checkbox"></label>
+        <div class="reset"><button id="setReset" type="button" class="danger" data-i18n="set.reset"></button>
+          <div id="setResetBox" class="hidden"><p class="note" data-i18n="set.reset.q"></p><div class="row"><button id="setResetYes" type="button" class="danger" data-i18n="set.reset.yes"></button><button id="setResetNo" type="button" data-i18n="set.reset.no"></button></div></div></div>
         <div class="row"><button id="setClose" type="button" class="big" data-i18n="set.close"></button></div>
       </div>
     </section>
@@ -135,6 +149,6 @@
     <section id="selftest" class="screen hidden"><pre id="selftestOut"></pre></section>
     <div id="toast" class="hidden" role="status"></div>
   </div>
-  <script type="module" src="js/main.js?v=2026111102"></script>
+  <script type="module" src="js/main.js?v=2026111103"></script>
 </body>
 </html>
