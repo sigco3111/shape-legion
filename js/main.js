@@ -1,18 +1,18 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111105';
-import { DT, NT, UNITS } from './units.js?v=2026111105';
-import { PRESETS, setupBattle } from './formation.js?v=2026111105';
-import { Renderer } from './render.js?v=2026111105';
-import { createUI } from './ui.js?v=2026111105';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111105';
-import { newSeed } from './rng.js?v=2026111105';
-import * as audio from './audio.js?v=2026111105';
-import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111105';
-import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111105';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111105';
-import { terrainFor } from './terrain.js?v=2026111105';
-import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111105';
-import { SK } from './units.js?v=2026111105';
+import { Sim } from './sim.js?v=2026111106';
+import { DT, NT, UNITS } from './units.js?v=2026111106';
+import { PRESETS, setupBattle } from './formation.js?v=2026111106';
+import { Renderer } from './render.js?v=2026111106';
+import { createUI } from './ui.js?v=2026111106';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111106';
+import { newSeed } from './rng.js?v=2026111106';
+import * as audio from './audio.js?v=2026111106';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111106';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111106';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111106';
+import { terrainFor } from './terrain.js?v=2026111106';
+import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111106';
+import { SK } from './units.js?v=2026111106';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -33,11 +33,13 @@ let urlSeed = +params.get('seed') || 0;
 const canvas = document.getElementById('view');
 const R = new Renderer(canvas);
 R.fx = settings.fx; R.shakeOn = settings.shake && R.shakeOn;
-audio.setVolume(settings.volume);
+// Audio: start on the first gesture (autoplay policy / mobile), UI click sounds by delegation.
+for (const ev of ['pointerdown', 'touchend', 'keydown', 'click']) addEventListener(ev, () => audio.unlock(), { capture: true, passive: true });
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button'); if (b && !b.disabled) audio.play(b.classList.contains('big') || b.id === 'dFight' ? 'confirm' : 'click'); }, true);
 
 const G = { screen: 'menu', sim: null, seed: 0, ambient: true, paused: false, speed: 1, acc: 0, perSide: 0, history: [], nextLog: 5, bannerShown: false, ambientTimer: 0, userCam: false, simMs: 0, simTicks: 0, fpsOn: settings.fps, camp: null, sk: null, cursor: null };
 let SAVE = loadSave();
-window.__sl = { G, R, settings, get save() { return SAVE; }, get camp() { return G.camp; }, get sim() { return G.sim; }, startBattle: (...a) => startBattle(...a) };
+window.__sl = { G, R, settings, audio, get save() { return SAVE; }, get camp() { return G.camp; }, get sim() { return G.sim; }, startBattle: (...a) => startBattle(...a) };
 
 const ui = createUI({
   settings, effectiveCap, autoCap: () => autoCap, isPaused: () => G.paused,
@@ -100,7 +102,7 @@ const ui = createUI({
 
 function blockedToast(d) { if (d.blockHit) { d.blockHit = false; if (performance.now() - (G.blkToast || 0) > 1500) { G.blkToast = performance.now(); ui.toast(t('dep.blocked'), 1400); } } }
 function toMenu() {
-  G.screen = 'menu'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('menu'); ui.buildPresets(); startAmbient();
+  audio.music('menu'); G.screen = 'menu'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('menu'); ui.buildPresets(); startAmbient();
 }
 // Fit the arena between the deploy top bar and bottom panel (plain fit elsewhere).
 function fitView() {
@@ -111,18 +113,18 @@ function fitView() {
   R.cam.zoom = z; R.cam.minZoom = Math.min(z * 0.8, 0.5); R.cam.y = 450 + (bot - top) / 2 / z; R.cam.x = 800;
 }
 function toStages() {
-  G.screen = 'stages'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('stages'); ui.buildStages(SAVE);
+  audio.music('menu'); G.screen = 'stages'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('stages'); ui.buildStages(SAVE);
   if (!G.ambient) startAmbient();
 }
 function toUpgrades() {
-  G.screen = 'upgrades'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('upgrades'); ui.buildUpgrades(SAVE);
+  audio.music('menu'); G.screen = 'upgrades'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('upgrades'); ui.buildUpgrades(SAVE);
   if (!G.ambient) startAmbient();
 }
 function startDeploy(idx, cells) {
   const st = effStage(STAGES[idx], buildMods(SAVE.up)), dep = new Deploy(st, cells); // st = stage with upgrade-adjusted budget / population cap
   const sim = G.camp && G.camp.prevSim ? G.camp.prevSim : new Sim({ cap: 3200, seed: st.seed, events: false });
   G.camp = { idx, st, dep, prevSim: sim, dirty: true, hover: null, lastVer: -1 };
-  endSkills(); clearTimeout(G.ambientTimer); G.screen = 'deploy'; G.ambient = false; G.paused = false; G.speed = 1; G.bannerShown = false;
+  audio.music('menu'); endSkills(); clearTimeout(G.ambientTimer); G.screen = 'deploy'; G.ambient = false; G.paused = false; G.speed = 1; G.bannerShown = false;
   ui.setCampaignHud(true); ui.setPaused(false); ui.setSpeed(1); ui.showScreen('deploy'); ui.setDeploy(st, idx);
   G.sim = sim; G.seed = st.seed; G.acc = 0; R.clearFx(); R.setTerrain(terrainFor(st));
   R.overlay = (c) => drawOverlay(c, G.camp.dep, G.camp.hover, R.cam.zoom);
@@ -134,7 +136,7 @@ function startFight() {
   const st = cp.st, sim = new Sim({ cap: 3200, seed: st.seed, events: true });
   sim.setMods(0, buildMods(SAVE.up)); // upgrades apply to the player team only; the sim's base table is untouched
   fillSim(sim, st, cp.dep);
-  G.sim = sim; G.seed = st.seed; G.screen = 'battle'; G.ambient = false; G.acc = 0; G.history = []; G.nextLog = 5; G.bannerShown = false; G.simMs = 0; G.simTicks = 0;
+  audio.music('battle'); G.sim = sim; G.seed = st.seed; G.screen = 'battle'; G.ambient = false; G.acc = 0; G.history = []; G.nextLog = 5; G.bannerShown = false; G.simMs = 0; G.simTicks = 0;
   R.clearFx(); R.overlay = null; cp.hover = null;
   ui.setCampaignHud(true); ui.showScreen('battle'); ui.setFps(G.fpsOn); setPaused(false); G.speed = 1; ui.setSpeed(1);
   G.sk = newSkillState(buildMods(SAVE.up).skills); ui.buildSkills(G.sk);
@@ -160,6 +162,7 @@ function castSkill(i, w) {
   if (!sk || !sim || sim.over || !canUse(sk, i, sim.time)) return;
   const n = i === 0 ? sim.castRally(0, w[0], w[1]) : i === 1 ? sim.castVolley(0) : sim.castCharge(0);
   sk.aim = -1;
+  if (n > 0) audio.play(['rally', 'volley', 'charge'][i]);
   if (n === 0) { ui.toast(t('skill.none'), 1500); ui.updateSkills(sk, sim.time); return; }
   sk.uses[i]--; sk.next[i] = sim.time + def.cd;
   R.skillFx(i, sim.fxPts, sim.fxN, w ? w[0] : 0, w ? w[1] : 0, SK.rallyRadius);
@@ -195,7 +198,7 @@ function startBattle(presetId, seed, ambient) {
   const cap = effectiveCap(), perSide = Math.min(p.perSide, Math.floor(cap / 2));
   if (perSide < p.perSide) ui.toast(t('toast.scaled', { cap, n: perSide }));
   settings.preset = p.id; save();
-  G.screen = 'battle'; G.ambient = false; ui.showScreen('battle'); ui.buildPresets(); ui.setFps(G.fpsOn);
+  audio.music('battle'); G.screen = 'battle'; G.ambient = false; ui.showScreen('battle'); ui.buildPresets(); ui.setFps(G.fpsOn);
   setPaused(false); G.speed = 1; ui.setSpeed(1);
   const sim = newBattle(perSide, seed);
   R.cam.fit(R.vw, R.vh); G.userCam = false;
@@ -247,7 +250,7 @@ function frame(ts) {
   R.consume(sim);
   if (!G.ambient) {
     const a = R.audioCounts;
-    if (a.melee) audio.play('melee', a.melee); if (a.shot) audio.play('shot', a.shot); if (a.death) audio.play('death', a.death); if (a.boom) audio.play('boom', a.boom);
+    for (const k of ['melee', 'arrow', 'shot', 'cat', 'wall', 'boom', 'death']) if (a[k]) audio.play(k, a[k]);
   }
   R.updateFx(G.paused ? 0 : (dtMs / 1000) * sp);
   R.draw(sim, sim.over || G.paused || deploying ? 1 : G.acc / DT);
@@ -259,7 +262,7 @@ function frame(ts) {
     else {
       logStats(sim);
       console.log(`[battle-end] winner=${sim.winner < 0 ? 'draw' : sim.winner ? 'red' : 'blue'} t=${sim.time.toFixed(1)}s survivors blue=${sim.count(0)} red=${sim.count(1)} avgSimMs/tick=${(G.simMs / Math.max(1, G.simTicks)).toFixed(2)}`);
-      setTimeout(() => { if (!G.ambient && G.sim === sim) { if (G.camp) finishCampaign(sim); else ui.showBanner(sim.winner, sim, G.seed); } }, 900);
+      setTimeout(() => { if (!G.ambient && G.sim === sim) { audio.music(null); audio.play(sim.winner === 0 ? 'victory' : 'defeat'); if (G.camp) finishCampaign(sim); else ui.showBanner(sim.winner, sim, G.seed); } }, 900);
     }
   }
   // HUD + overlay
@@ -294,7 +297,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111105').then(async (m) => {
+  import('./selftest.js?v=2026111106').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;

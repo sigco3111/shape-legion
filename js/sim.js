@@ -1,7 +1,7 @@
 // Headless simulation core: structure-of-arrays, spatial hashing, fixed timestep.
-import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE, SK } from './units.js?v=2026111105';
-import { RNG } from './rng.js?v=2026111105';
-import { TC, TCOLS, TROWS, M_WALL, HILL_RANGE } from './terrain.js?v=2026111105';
+import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE, SK } from './units.js?v=2026111106';
+import { RNG } from './rng.js?v=2026111106';
+import { TC, TCOLS, TROWS, M_WALL, HILL_RANGE } from './terrain.js?v=2026111106';
 
 const F = (k) => Float32Array.from(UNITS.map((u) => u[k]));
 const HP = F('hp').map((v) => v * HP_SCALE), DMG = F('dmg'), CD = F('cd'), RANGE = F('range'), MINR = F('minRange');
@@ -14,7 +14,7 @@ const MINPREF = Math.min(...PREF.flat());
 const MAXPUSH = 2.5, RETARGET = 12, MAXRING = 6, SEP = 0.8, STIFF = 0.5, ACCEL = 0.3;
 const CELL = 25, TCELL = 50;
 export const EVCAP = 6000;
-export const EV = { DEATH: 0, HIT: 1, SPLASH: 2, SHOT: 3 };
+export const EV = { DEATH: 0, HIT: 1, SPLASH: 2, SHOT: 3, WALL: 4 };
 export const PCAP = 4000;
 const ARROW_SPEED = 380, BOULDER_SPEED = 210, MAX_TIME = 300;
 
@@ -270,12 +270,12 @@ export class Sim {
         const step = ARROW_SPEED * DT;
         if (d <= step + 2) {
           let v = (tg >= 0 && this.alive[tg]) ? tg : this.nearestEnemyAt(team, this.pTX[p], this.pTY[p], 9);
-          if (v >= 0) { this.hurt(v, src, DMG[src] * (this.mods[team] ? this.mods[team].dmg[src] : 1) * this.pMul[p], 1); this.ev(EV.HIT, this.x[v], this.y[v], team, 0); }
+          if (v >= 0) { this.hurt(v, src, DMG[src] * (this.mods[team] ? this.mods[team].dmg[src] : 1) * this.pMul[p], 1); this.ev(EV.HIT, this.x[v], this.y[v], team, 2); }
           this.freeP(p);
         } else {
           this.pVX[p] = dx / d * ARROW_SPEED; this.pVY[p] = dy / d * ARROW_SPEED;
           this.pX[p] += this.pVX[p] * DT; this.pY[p] += this.pVY[p] * DT;
-          if (this.anyWall && (this.blocked[(Math.max(0, Math.min(TROWS - 1, (this.pY[p] / TC) | 0))) * TCOLS + Math.max(0, Math.min(TCOLS - 1, (this.pX[p] / TC) | 0))] & M_WALL)) { this.freeP(p); continue; } // walls stop arrows (rivers do not; lobbed boulders fly over)
+          if (this.anyWall && (this.blocked[(Math.max(0, Math.min(TROWS - 1, (this.pY[p] / TC) | 0))) * TCOLS + Math.max(0, Math.min(TCOLS - 1, (this.pX[p] / TC) | 0))] & M_WALL)) { this.ev(EV.WALL, this.pX[p], this.pY[p], team, 0); this.freeP(p); continue; } // walls stop arrows (rivers do not; lobbed boulders fly over)
           if (this.pT[p] > this.pDur[p]) this.freeP(p);
         }
       }

@@ -1,7 +1,7 @@
 // Campaign data: stages, enemy formations, star/reward rules, save progress (localStorage).
-import { UNITS, ARENA } from './units.js?v=2026111105';
-import { defaultUp, normUp } from './upgrades.js?v=2026111105';
-import { terrainFor, rectBlocked } from './terrain.js?v=2026111105';
+import { UNITS, ARENA } from './units.js?v=2026111106';
+import { defaultUp, normUp } from './upgrades.js?v=2026111106';
+import { terrainFor, rectBlocked } from './terrain.js?v=2026111106';
 
 // Deployment grid (player half). Cells are snapped; enemy cells mirror it (d = columns from the centre line).
 export const GRID = { cell: 14, cols: 56, rows: 63, x0: 8, y0: 9 };

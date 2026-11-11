@@ -1,7 +1,7 @@
 // Canvas 2D renderer: sprite atlas, static background, batched drawImage, additive glow/bloom, pooled FX.
-import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111105';
-import { EV } from './sim.js?v=2026111105';
-import { TC, TCOLS, TROWS, K } from './terrain.js?v=2026111105';
+import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111106';
+import { EV } from './sim.js?v=2026111106';
+import { TC, TCOLS, TROWS, K } from './terrain.js?v=2026111106';
 
 const TAU = Math.PI * 2, DIRS = 16, CELLW = 28; // atlas cell size in world units
 const MAXP = 7000, MAXR = 300;
@@ -88,7 +88,7 @@ export class Renderer {
     this.rn = 0; this.rX = new Float32Array(MAXR); this.rY = new Float32Array(MAXR); this.rA = new Float32Array(MAXR); this.rM = new Float32Array(MAXR); this.rR = new Float32Array(MAXR); this.rC = new Uint8Array(MAXR);
     this.dots = TEAMS.map((tm) => { const c = mk(32, 32), x = c.getContext('2d'); const g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, '#fff'); g.addColorStop(0.25, rgba(tm.rgb, 0.9)); g.addColorStop(1, rgba(tm.rgb, 0)); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return c; });
     this.stats = { drawn: 0, particles: 0, ms: 0 };
-    this.audioCounts = { melee: 0, shot: 0, boom: 0, death: 0 };
+    this.audioCounts = { melee: 0, shot: 0, boom: 0, death: 0, arrow: 0, cat: 0, wall: 0 };
   }
 
   resize(cssW, cssH) {
@@ -190,7 +190,7 @@ export class Renderer {
 
   consume(sim) {
     const n = sim.evN, fx = this.fx, load = this.pn / MAXP, ac = this.audioCounts;
-    ac.melee = ac.shot = ac.boom = ac.death = 0;
+    ac.melee = ac.shot = ac.boom = ac.death = ac.arrow = ac.cat = ac.wall = 0;
     const dctx = this.dctx;
     for (let k = 0; k < n; k++) {
       const x = sim.evX[k], y = sim.evY[k], tm = sim.evA[k];
@@ -204,8 +204,8 @@ export class Renderer {
           break;
         }
         case EV.HIT: {
-          ac.melee++;
-          if (fx > 0 && load < 0.8) { const a = Math.random() * TAU; this.spawnP(x, y, Math.cos(a) * 40, Math.sin(a) * 40, 0.18, sim.evB[k] ? 2.4 : 1.3, tm); }
+          if (sim.evB[k] === 2) ac.arrow++; else ac.melee++;
+          if (fx > 0 && load < 0.8) { const a = Math.random() * TAU; this.spawnP(x, y, Math.cos(a) * 40, Math.sin(a) * 40, 0.18, sim.evB[k] === 1 ? 2.4 : 1.3, tm); }
           break;
         }
         case EV.SPLASH: {
@@ -215,7 +215,12 @@ export class Renderer {
           if (this.shakeOn) this.shake = Math.min(5, this.shake + 1.2);
           break;
         }
-        case EV.SHOT: ac.shot++; break;
+        case EV.SHOT: if (sim.evB[k] === 1) ac.cat++; else ac.shot++; break;
+        case EV.WALL: { // arrow stopped by a wall: short spark fan (always a few, even on low fx)
+          ac.wall++;
+          if (load < 0.9) for (let i = 0; i < [2, 4, 6][fx]; i++) { const a = Math.random() * TAU, sp = 50 + Math.random() * 110; this.spawnP(x, y, Math.cos(a) * sp, Math.sin(a) * sp, 0.18 + Math.random() * 0.2, 1.4 + Math.random() * 1.6, tm); }
+          break;
+        }
       }
     }
     sim.evN = 0;

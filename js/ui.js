@@ -1,18 +1,19 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111105';
-import { PRESETS } from './formation.js?v=2026111105';
-import { NT, UNITS } from './units.js?v=2026111105';
-import { STAGES, enemyCounts } from './stages.js?v=2026111105';
-import { SKILLS, cooldownLeft } from './skills.js?v=2026111105';
-import { terrainFor, TERR_ICON } from './terrain.js?v=2026111105';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111105';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111106';
+import { PRESETS } from './formation.js?v=2026111106';
+import { NT, UNITS } from './units.js?v=2026111106';
+import { STAGES, enemyCounts } from './stages.js?v=2026111106';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111106';
+import * as audio from './audio.js?v=2026111106';
+import { terrainFor, TERR_ICON } from './terrain.js?v=2026111106';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111106';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
 
 export function createUI(h) {
   const el = {};
-  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setShake', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result', 'upgrades']
+  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setSfx', 'setMus', 'setMute', 'setShake', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result', 'upgrades']
     .forEach((k) => (el[k] = $(k)));
   const ui = { el, preset: h.settings.preset };
 
@@ -180,7 +181,7 @@ export function createUI(h) {
   $('upgradesBtn').onclick = () => h.onUpgrades(); $('resUpg').onclick = () => h.onUpgrades(); $('upBack').onclick = () => h.onUpgradesBack();
   ui.setDeploy = (st, idx) => {
     $('dStage').textContent = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
-    { const tr = terrainFor(st); $('dDesc').textContent = (tr ? tr.tags.map((k) => TERR_ICON[k] + ' ' + t('terr.' + k)).join(' · ') + ' — ' : '') + t('stage.' + st.id + '.desc'); }
+    { const tr = terrainFor(st); $('dLegend').innerHTML = tr ? tr.tags.map((k) => `<span>${TERR_ICON[k]} ${t('terr.' + k)}: ${t('legend.' + k)}</span>`).join(' · ') : ''; $('dDesc').textContent = (tr ? tr.tags.map((k) => TERR_ICON[k] + ' ' + t('terr.' + k)).join(' · ') + ' — ' : '') + t('stage.' + st.id + '.desc'); }
     const ec = enemyCounts(st); $('dEnemy').innerHTML = ec.map((n, ty) => (n ? `<span class="chip" title="${t('unit.' + ty)}"><i class="sh t${ty} r"></i><span>${n}</span></span>` : '')).join('');
   };
   ui.showResult = (r) => {
@@ -230,7 +231,7 @@ export function createUI(h) {
   $('demoBtn').onclick = () => h.onDemo();
   $('campaignBtn').onclick = () => h.onCampaign(); $('stagesBack').onclick = () => h.onMenu();
   $('menuSettings').onclick = () => ui.openSettings();
-  $('menuCredits').onclick = () => el.credits.classList.remove('hidden');
+  $('menuCredits').onclick = () => { ui.buildCredits(); el.credits.classList.remove('hidden'); };
   $('creditsClose').onclick = () => el.credits.classList.add('hidden');
   $('menuLang').onclick = () => { setLang(getLang() === 'ko' ? 'en' : 'ko'); h.onLang(getLang()); };
   $('btnMenu').onclick = () => h.onMenu(); $('bnMenu').onclick = () => h.onMenu();
@@ -247,7 +248,8 @@ export function createUI(h) {
   const autoOpt = () => { el.setCap.options[0].textContent = `${t('set.auto')} (${h.autoCap()})`; };
   ui.openSettings = () => {
     const s = h.settings; autoOpt();
-    el.setCap.value = String(s.cap); el.setVol.value = s.volume; el.setShake.checked = s.shake;
+    el.setCap.value = String(s.cap); el.setShake.checked = s.shake;
+    const au = audio.settings(); el.setVol.value = au.master; el.setSfx.value = au.sfx; el.setMus.value = au.music; el.setMute.checked = au.mute;
     el.setFx.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.fx === s.fx));
     el.settings.classList.remove('hidden'); resetBox(false);
   };
@@ -258,7 +260,11 @@ export function createUI(h) {
   $('setClose').onclick = () => { resetBox(false); closeSettings(); };
   el.setLang.onclick = (e) => { const b = e.target.closest('button'); if (b) { setLang(b.dataset.lang); h.onLang(b.dataset.lang); autoOpt(); } };
   el.setCap.onchange = () => { h.onSetting('cap', el.setCap.value === 'auto' ? 'auto' : +el.setCap.value); ui.buildPresets(); };
-  el.setVol.oninput = () => h.onSetting('volume', +el.setVol.value);
+  el.setVol.oninput = () => audio.set('master', +el.setVol.value); el.setSfx.oninput = () => audio.set('sfx', +el.setSfx.value); el.setMus.oninput = () => audio.set('music', +el.setMus.value);
+  el.setMute.onchange = () => audio.set('mute', el.setMute.checked);
+  ui.buildCredits = () => {
+    $('creditsList').innerHTML = audio.CREDITS.map((c) => `<li><b>${c.pack}</b> — ${t('credits.by')}: ${c.author} · ${t('credits.lic')}: ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}<br><small><a href="${c.url}" target="_blank" rel="noopener">${c.url}</a> · ${t('credits.files')}: ${c.files}${c.attribution ? `<br>${c.attribution}` : ''}</small></li>`).join('');
+  };
   el.setShake.onchange = () => h.onSetting('shake', el.setShake.checked);
   el.setFx.onclick = (e) => { const b = e.target.closest('button'); if (b) { h.onSetting('fx', +b.dataset.fx); ui.openSettings(); } };
   for (const id of ['settings', 'credits']) el[id].addEventListener('pointerdown', (e) => { if (e.target === el[id]) el[id].classList.add('hidden'); });

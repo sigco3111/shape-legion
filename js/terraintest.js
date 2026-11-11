@@ -1,13 +1,13 @@
 // Terrain checks (Node): node js/terraintest.js [seeds]
 // 1) units never inside blocked cells  2) single-bridge river battle ends with a winner  3) walls stop arrows  4) sim ms/tick flat vs river+bridge (1000v1000)
-import { Sim } from './sim.js?v=2026111105';
-import { ARENA, T } from './units.js?v=2026111105';
-import { setupBattle } from './formation.js?v=2026111105';
-import { STAGES } from './stages.js?v=2026111105';
-import { terrainFor, TC, TCOLS } from './terrain.js?v=2026111105';
-import { fight, autoCells, expectedUp } from './stagetest.js?v=2026111105';
-import { effStage } from './upgrades.js?v=2026111105';
-import { buildMods } from './upgrades.js?v=2026111105';
+import { Sim } from './sim.js?v=2026111106';
+import { ARENA, T } from './units.js?v=2026111106';
+import { setupBattle } from './formation.js?v=2026111106';
+import { STAGES } from './stages.js?v=2026111106';
+import { terrainFor, TC, TCOLS } from './terrain.js?v=2026111106';
+import { fight, autoCells, expectedUp } from './stagetest.js?v=2026111106';
+import { effStage } from './upgrades.js?v=2026111106';
+import { buildMods } from './upgrades.js?v=2026111106';
 
 const RIVER1 = { terrain: { river: { c0: 30, c1: 33, bridges: [[16, 19]] } } }; // one bridge, 4 cells (100 units) wide, centre of the arena
 const inBlocked = (sim, tr) => { let n = 0; for (let i = 0; i < sim.n; i++) if (sim.alive[i] && tr.mask[((sim.y[i] / TC) | 0) * TCOLS + ((sim.x[i] / TC) | 0)]) n++; return n; };
