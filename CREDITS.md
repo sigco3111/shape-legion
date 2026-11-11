@@ -1,7 +1,7 @@
 # 크레딧 (Credits)
 
 게임 코드는 MIT 라이선스(`LICENSE`)입니다. 게임 안의 **크레딧** 화면도 이 문서와 같은 내용을 안내합니다.
-도형·이펙트는 코드(Canvas 2D)로 그렸고, 소리는 아래 에셋입니다. 모든 파일은 OGG(모노/스테레오, 낮은 비트레이트)로 변환하고 길이를 잘랐으며, 그 외 수정은 없습니다. 에셋은 [game-asset-catalog](https://github.com/sigco3111/game-asset-catalog)에서 받았습니다.
+도형·이펙트는 코드(Canvas 2D)로 그렸고, 소리와 글꼴은 아래 에셋입니다. 모든 파일은 OGG(모노/스테레오, 낮은 비트레이트)로 변환하고 길이를 잘랐으며, 그 외 수정은 없습니다. 에셋은 [game-asset-catalog](https://github.com/sigco3111/game-asset-catalog)에서 받았습니다.
 
 ## 에셋 (assets/audio/)
 
@@ -15,6 +15,7 @@
 | Rpg Loop 1 | Tozan | CC0 1.0 | https://opengameart.org/content/rpg-loop-1 | bgm_battle |
 | Calm Ambient 3 (Lifewave 2k) | Snabisch | CC0 1.0 | https://opengameart.org/content/calm-ambient-3-lifewave-2k | bgm_menu (앞 90초) |
 | Boom Pack 2 | dklon | **CC-BY 3.0** | https://opengameart.org/content/boom-pack-2 | boulder_boom |
+| Kenney Fonts — Kenney Pixel Square (글꼴) | Kenney | CC0 1.0 | https://kenney.nl/assets/kenney-fonts | assets/kenney-pixel-square.woff2 (ASCII 문자·기호만 부분집합, 숫자 제외, woff2 변환) |
 
 ### 표기 (CC-BY 3.0)
 dklon — "Boom Pack 2" (https://opengameart.org/content/boom-pack-2), CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/). OGG로 변환하고 길이를 잘랐습니다.
