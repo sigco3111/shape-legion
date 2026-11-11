@@ -7,7 +7,7 @@
   <meta name="description" content="도형 군단 — 도형 병력을 그려 배치하고 자동으로 싸우는 수천 명 규모 웹 전략 게임">
   <meta name="theme-color" content="#070b16">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="css/style.css?v=2026111105">
+  <link rel="stylesheet" href="css/style.css?v=2026111106">
 </head>
 <body>
   <div id="app">
@@ -59,6 +59,7 @@
         <button id="dBack" type="button" class="ic" data-i18n-title="dep.back">←</button>
         <div class="dinfo">
           <div class="dtitle"><b id="dStage"></b><span id="dDesc" class="dim"></span></div>
+          <div id="dLegend" class="legend dim"></div>
           <div class="bar" id="dBudget"><i id="dBudgetBar"></i><span id="dBudgetTxt"></span></div>
           <div class="bar pop" id="dPop"><i id="dPopBar"></i><span id="dPopTxt"></span></div>
           <div class="denemy"><span class="dim" data-i18n="dep.enemy"></span><span id="dEnemy" class="chips"></span></div>
@@ -130,6 +131,9 @@
         <p class="note" data-i18n="set.capnote"></p>
         <label class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></label>
         <label class="fld"><span data-i18n="set.volume"></span><input id="setVol" type="range" min="0" max="1" step="0.05"></label>
+        <label class="fld"><span data-i18n="set.sfx"></span><input id="setSfx" type="range" min="0" max="1" step="0.05"></label>
+        <label class="fld"><span data-i18n="set.music"></span><input id="setMus" type="range" min="0" max="1" step="0.05"></label>
+        <label class="fld"><span data-i18n="set.mute"></span><input id="setMute" type="checkbox"></label>
         <label class="fld"><span data-i18n="set.motion"></span><input id="setShake" type="checkbox"></label>
         <div class="reset"><button id="setReset" type="button" class="danger" data-i18n="set.reset"></button>
           <div id="setResetBox" class="hidden"><p class="note" data-i18n="set.reset.q"></p><div class="row"><button id="setResetYes" type="button" class="danger" data-i18n="set.reset.yes"></button><button id="setResetNo" type="button" data-i18n="set.reset.no"></button></div></div></div>
@@ -142,6 +146,7 @@
       <div class="menu-card left">
         <h1 data-i18n="credits.title"></h1>
         <p data-i18n="credits.body"></p>
+        <ul id="creditsList" class="clist"></ul>
         <p class="note"><a href="CREDITS.md" target="_blank" rel="noopener">CREDITS.md</a></p>
         <div class="row"><button id="creditsClose" type="button" class="big" data-i18n="set.close"></button></div>
       </div>
@@ -150,6 +155,6 @@
     <section id="selftest" class="screen hidden"><pre id="selftestOut"></pre></section>
     <div id="toast" class="hidden" role="status"></div>
   </div>
-  <script type="module" src="js/main.js?v=2026111105"></script>
+  <script type="module" src="js/main.js?v=2026111106"></script>
 </body>
 </html>
