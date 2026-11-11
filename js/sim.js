@@ -1,6 +1,6 @@
 // Headless simulation core: structure-of-arrays, spatial hashing, fixed timestep.
-import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE } from './units.js?v=2026111101';
-import { RNG } from './rng.js?v=2026111101';
+import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE } from './units.js?v=2026111102';
+import { RNG } from './rng.js?v=2026111102';
 
 const F = (k) => Float32Array.from(UNITS.map((u) => u[k]));
 const HP = F('hp').map((v) => v * HP_SCALE), DMG = F('dmg'), CD = F('cd'), RANGE = F('range'), MINR = F('minRange');

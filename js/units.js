@@ -1,5 +1,5 @@
 // Unit definitions and balance tables. Everything tunable lives here.
-export const VER = '2026111101';
+export const VER = '2026111102';
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 export const ARENA = { w: 1600, h: 900 };

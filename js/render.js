@@ -1,6 +1,6 @@
 // Canvas 2D renderer: sprite atlas, static background, batched drawImage, additive glow/bloom, pooled FX.
-import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111101';
-import { EV } from './sim.js?v=2026111101';
+import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111102';
+import { EV } from './sim.js?v=2026111102';
 
 const TAU = Math.PI * 2, DIRS = 16, CELLW = 28; // atlas cell size in world units
 const MAXP = 7000, MAXR = 300;
@@ -220,6 +220,7 @@ export class Renderer {
     c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
     c.drawImage(this.bg, 0, 0, ARENA.w, ARENA.h);
     c.drawImage(this.decal, 0, 0, ARENA.w, ARENA.h);
+    if (this.overlay) this.overlay(c); // deploy-phase zones/grid/brush (world units)
     if (sim.blocked) this.drawTerrain(c, sim); // hook for terrain (later rounds)
     c.imageSmoothingQuality = 'low';
     // visible world rect

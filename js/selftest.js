@@ -1,7 +1,7 @@
 // Headless balance/perf self-test. Browser: ?selftest=1 (&full=1). Node: node js/selftest.js [full]
-import { Sim } from './sim.js?v=2026111101';
-import { UNITS, NT, DT } from './units.js?v=2026111101';
-import { setupBattle, setupCounts } from './formation.js?v=2026111101';
+import { Sim } from './sim.js?v=2026111102';
+import { UNITS, NT, DT } from './units.js?v=2026111102';
+import { setupBattle, setupCounts } from './formation.js?v=2026111102';
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const yieldUI = () => new Promise((r) => setTimeout(r, 0));

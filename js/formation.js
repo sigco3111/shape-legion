@@ -1,5 +1,5 @@
 // Formation layout + presets (shared by demo battles and the self-test).
-import { UNITS, NT, ARENA } from './units.js?v=2026111101';
+import { UNITS, NT, ARENA } from './units.js?v=2026111102';
 
 export const MIX = [0.46, 0.14, 0.17, 0.15, 0.08]; // circle, square, archer, rider, siege (by count)
 export const PRESETS = [

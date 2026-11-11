@@ -1,14 +1,15 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111101';
-import { PRESETS } from './formation.js?v=2026111101';
-import { NT } from './units.js?v=2026111101';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111102';
+import { PRESETS } from './formation.js?v=2026111102';
+import { NT, UNITS } from './units.js?v=2026111102';
+import { STAGES, enemyCounts } from './stages.js?v=2026111102';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
 
 export function createUI(h) {
   const el = {};
-  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setShake', 'setLang', 'setFx', 'view']
+  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setShake', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result']
     .forEach((k) => (el[k] = $(k)));
   const ui = { el, preset: h.settings.preset };
 
@@ -44,7 +45,63 @@ export function createUI(h) {
   ui.showScreen = (name) => {
     el.menu.classList.toggle('hidden', name !== 'menu');
     el.hud.classList.toggle('hidden', name !== 'battle');
+    el.stages.classList.toggle('hidden', name !== 'stages');
+    el.deploy.classList.toggle('hidden', name !== 'deploy');
+    if (name !== 'result') el.result.classList.add('hidden');
+    el.view.style.cursor = name === 'deploy' ? 'crosshair' : '';
     if (name !== 'battle') ui.hideBanner();
+  };
+  ui.setCampaignHud = (on) => { el.hud.classList.toggle('campaign', on); $('help').dataset.i18n = on ? 'hud.help.camp' : 'hud.help'; $('help').textContent = t(on ? 'hud.help.camp' : 'hud.help'); };
+
+  // ---- campaign: stage select, deploy panel, result ----
+  ui.buildStages = (save) => {
+    $('goldTxt').textContent = save.gold;
+    const box = $('stageList'); box.innerHTML = '';
+    STAGES.forEach((st, i) => {
+      const locked = i + 1 > save.unlocked, b = document.createElement('button');
+      b.type = 'button'; b.className = 'stage' + (locked ? ' locked' : ''); b.disabled = locked;
+      const n = save.stars[i];
+      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: st.budget, c: st.cap })}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
+      b.onclick = () => h.onStagePick(i);
+      box.appendChild(b);
+    });
+  };
+  const unitBtns = [];
+  for (let ty = 0; ty < NT; ty++) {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.type = ty;
+    b.innerHTML = `<i class="sh t${ty} b"></i><b></b><small>${UNITS[ty].cost}G</small><em>0</em>`;
+    b.onclick = () => h.onDeployType(ty);
+    $('dUnits').appendChild(b); unitBtns.push(b);
+  }
+  $('dBrush').onclick = (e) => { const b = e.target.closest('button'); if (b) h.onBrush(+b.dataset.brush); };
+  $('dErase').onclick = () => h.onErase(); $('dUndo').onclick = () => h.onUndo(); $('dClear').onclick = () => h.onClear();
+  $('dFight').onclick = () => h.onFight(); $('dBack').onclick = () => h.onDeployBack(); $('dFit').onclick = () => h.onFit();
+  $('resRetry').onclick = () => h.onRetry(); $('resNext').onclick = () => h.onNext(); $('resMenu').onclick = () => h.onHome();
+  let fullT = 0;
+  ui.updateDeploy = (dep, st) => {
+    const bud = st.budget, cap = st.cap;
+    $('dBudgetBar').style.width = Math.min(100, 100 * dep.cost / bud) + '%'; $('dBudgetTxt').textContent = `${t('dep.gold')} ${dep.cost}/${bud}`;
+    $('dPopBar').style.width = Math.min(100, 100 * dep.pop / cap) + '%'; $('dPopTxt').textContent = `${t('dep.pop')} ${dep.pop}/${cap}`;
+    unitBtns.forEach((b, ty) => {
+      b.children[1].textContent = t('unit.' + ty); b.children[3].textContent = dep.counts[ty];
+      b.setAttribute('aria-checked', String(!dep.erase && dep.type === ty)); b.classList.toggle('poor', !dep.canAfford(ty));
+    });
+    $('dBrush').querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.brush === dep.brush));
+    $('dErase').classList.toggle('on', dep.erase); $('dUndo').disabled = !dep.strokes.length;
+    if (dep.limitHit) { dep.limitHit = false; $('dBudget').classList.add('full'); $('dPop').classList.add('full'); clearTimeout(fullT); fullT = setTimeout(() => { $('dBudget').classList.remove('full'); $('dPop').classList.remove('full'); }, 500); }
+  };
+  ui.setDeploy = (st, idx) => {
+    $('dStage').textContent = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
+    $('dDesc').textContent = t('stage.' + st.id + '.desc');
+    const ec = enemyCounts(st); $('dEnemy').innerHTML = ec.map((n, ty) => (n ? `<span class="chip" title="${t('unit.' + ty)}"><i class="sh t${ty} r"></i><span>${n}</span></span>` : '')).join('');
+  };
+  ui.showResult = (r) => {
+    $('resTitle').textContent = t(r.draw ? 'res.draw' : r.win ? 'res.win' : 'res.lose'); $('resTitle').dataset.team = r.win ? 0 : 1;
+    $('resSub').textContent = t('res.sub', { time: r.time.toFixed(1), s: r.sv, d: r.dv, p: Math.round(100 * r.sv / Math.max(1, r.dv)) });
+    $('resStars').textContent = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + (r.newBest ? '  ' + t('res.new') : '');
+    $('resGold').textContent = r.win ? t('res.goldwin', { g: r.gold, b: r.base, s: r.bonus }) : t('res.golddef', { g: r.gold });
+    $('resNext').classList.toggle('hidden', !r.hasNext);
+    el.result.classList.remove('hidden'); $(r.win && r.hasNext ? 'resNext' : 'resRetry').focus();
   };
   ui.hideBanner = () => el.banner.classList.add('hidden');
   ui.showBanner = (winner, sim, seed) => {
@@ -71,7 +128,7 @@ export function createUI(h) {
   };
   const refreshTexts = () => {
     applyI18n(document);
-    ui.buildPresets();
+    ui.buildPresets(); h.onTexts && h.onTexts();
     chipRefs.forEach((arr, tm) => arr.forEach((c, ty) => { c.title = `${t('team.' + tm)} ${t('unit.' + ty)}`; }));
     el.btnPause.title = t(h.isPaused() ? 'hud.play' : 'hud.pause');
     el.setLang.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.lang === getLang()));
@@ -83,6 +140,7 @@ export function createUI(h) {
 
   // ---- buttons ----
   $('demoBtn').onclick = () => h.onDemo();
+  $('campaignBtn').onclick = () => h.onCampaign(); $('stagesBack').onclick = () => h.onMenu();
   $('menuSettings').onclick = () => ui.openSettings();
   $('menuCredits').onclick = () => el.credits.classList.remove('hidden');
   $('creditsClose').onclick = () => el.credits.classList.add('hidden');
@@ -129,28 +187,43 @@ export function createUI(h) {
     else if (k === 'arrowup') h.onPan(0, 80); else if (k === 'arrowdown') h.onPan(0, -80);
   });
 
-  // ---- camera input: pointer events (mouse + touch + pen), wheel zoom, pinch ----
-  const view = el.view, ptrs = new Map();
-  let lastDist = 0, lastMid = null;
+  // ---- pointer input: camera (mouse/touch/pen) + painting during the deploy phase ----
+  // Deploy: one pointer paints; right/middle-drag, Space+drag or two fingers move/zoom the camera. Otherwise one pointer pans.
+  const view = el.view, ptrs = new Map(); // id -> { p: [x, y], kind: 'paint' | 'cam', t0 }
+  let lastDist = 0, lastMid = null, spaceDown = false;
   const local = (e) => { const r = view.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const W = (p) => h.toWorld(p[0], p[1]);
+  addEventListener('keydown', (e) => { if (e.code === 'Space' && h.isDeploy() && !e.target.matches('input,select,textarea')) { spaceDown = true; e.preventDefault(); } });
+  addEventListener('keyup', (e) => { if (e.code === 'Space') { if (spaceDown) e.preventDefault(); spaceDown = false; } });
+  addEventListener('blur', () => { spaceDown = false; });
   view.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
-    view.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, local(e)); lastDist = 0; lastMid = null; h.onUserCamera();
+    const mouse = e.pointerType === 'mouse';
+    if (mouse && e.button > 2) return;
+    view.setPointerCapture(e.pointerId);
+    let kind = 'cam';
+    if (h.isDeploy() && !spaceDown && ptrs.size === 0 && (!mouse || e.button === 0)) kind = 'paint';
+    for (const q of ptrs.values()) if (q.kind === 'paint') { q.kind = 'cam'; if (performance.now() - q.t0 < 250) h.onPaintCancel(); else h.onPaintEnd(); }
+    const p = local(e); ptrs.set(e.pointerId, { p, kind, t0: performance.now() }); lastDist = 0; lastMid = null; h.onUserCamera();
+    if (kind === 'paint') { const w = W(p); h.onPaintStart(w[0], w[1]); }
   });
   view.addEventListener('pointermove', (e) => {
-    if (!ptrs.has(e.pointerId)) return;
-    const prev = ptrs.get(e.pointerId), cur = local(e); ptrs.set(e.pointerId, cur);
-    if (ptrs.size === 1) h.onPan(cur[0] - prev[0], cur[1] - prev[1]);
-    else if (ptrs.size === 2) {
-      const [p, q] = [...ptrs.values()], d = Math.hypot(p[0] - q[0], p[1] - q[1]), mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    const q = ptrs.get(e.pointerId);
+    if (!q) { if (e.pointerType === 'mouse' && h.isDeploy()) h.onHover(W(local(e))); return; }
+    const prev = q.p, cur = local(e); q.p = cur;
+    if (q.kind === 'paint') { h.onPaintMove(W(prev), W(cur)); return; }
+    const cams = [...ptrs.values()].filter((v) => v.kind === 'cam');
+    if (cams.length === 1) h.onPan(cur[0] - prev[0], cur[1] - prev[1]);
+    else if (cams.length === 2) {
+      const [a, b] = [cams[0].p, cams[1].p], d = Math.hypot(a[0] - b[0], a[1] - b[1]), mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
       if (lastDist) { h.onZoomAt(d / lastDist, mid[0], mid[1]); h.onPan(mid[0] - lastMid[0], mid[1] - lastMid[1]); }
       lastDist = d; lastMid = mid;
     }
   });
-  const up = (e) => { ptrs.delete(e.pointerId); lastDist = 0; lastMid = null; };
+  const up = (e) => { const q = ptrs.get(e.pointerId); if (!q) return; ptrs.delete(e.pointerId); if (q.kind === 'paint') h.onPaintEnd(); lastDist = 0; lastMid = null; };
   view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up); view.addEventListener('lostpointercapture', up);
+  view.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !ptrs.size) h.onHover(null); });
   view.addEventListener('wheel', (e) => { e.preventDefault(); const [x, y] = local(e); h.onUserCamera(); h.onZoomAt(Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)), x, y); }, { passive: false });
-  view.addEventListener('dblclick', () => h.onFit());
+  view.addEventListener('dblclick', () => { if (!h.isDeploy()) h.onFit(); });
   view.addEventListener('contextmenu', (e) => e.preventDefault());
 
   onLang(() => refreshTexts());
