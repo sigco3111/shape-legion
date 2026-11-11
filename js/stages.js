@@ -1,5 +1,6 @@
 // Campaign data: stages, enemy formations, star/reward rules, save progress (localStorage).
-import { UNITS, ARENA } from './units.js?v=2026111102';
+import { UNITS, ARENA } from './units.js?v=2026111103';
+import { defaultUp, normUp } from './upgrades.js?v=2026111103';
 
 // Deployment grid (player half). Cells are snapped; enemy cells mirror it (d = columns from the centre line).
 export const GRID = { cell: 14, cols: 56, rows: 63, x0: 8, y0: 9 };
@@ -39,14 +40,16 @@ export function rewardFor(stage, win, survivorCost) {
 }
 
 const KEY = 'shapelegion.save.v1';
-export function defaultSave() { return { v: 1, stars: STAGES.map(() => 0), gold: 0, unlocked: 1 }; }
+// Save v2 adds `up` (upgrade levels); v1 saves load fine (missing fields default).
+export const SAVE_VER = 2;
+export function defaultSave() { return { v: SAVE_VER, stars: STAGES.map(() => 0), gold: 0, unlocked: 1, up: defaultUp() }; }
 export function loadSave() {
   const s = defaultSave();
   try {
     const o = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (o && typeof o === 'object') {
       STAGES.forEach((_, i) => { s.stars[i] = Math.max(0, Math.min(3, (o.stars && o.stars[i]) | 0)); });
-      s.gold = Math.max(0, o.gold | 0); s.unlocked = Math.max(1, Math.min(STAGES.length, o.unlocked | 0));
+      s.gold = Math.max(0, o.gold | 0); s.unlocked = Math.max(1, Math.min(STAGES.length, o.unlocked | 0)); s.up = normUp(o.up);
     }
   } catch (e) { /* private mode / bad json */ }
   return s;
@@ -58,3 +61,5 @@ export function recordResult(s, idx, stars, gold) {
   if (stars > 0 && idx + 2 > s.unlocked) s.unlocked = Math.min(STAGES.length, idx + 2);
   storeSave(s); return s;
 }
+// Wipes all progress (stars, gold, unlocks, upgrades) and returns a fresh save.
+export function resetSave() { const s = defaultSave(); storeSave(s); return s; }

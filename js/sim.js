@@ -1,6 +1,6 @@
 // Headless simulation core: structure-of-arrays, spatial hashing, fixed timestep.
-import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE } from './units.js?v=2026111102';
-import { RNG } from './rng.js?v=2026111102';
+import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE } from './units.js?v=2026111103';
+import { RNG } from './rng.js?v=2026111103';
 
 const F = (k) => Float32Array.from(UNITS.map((u) => u[k]));
 const HP = F('hp').map((v) => v * HP_SCALE), DMG = F('dmg'), CD = F('cd'), RANGE = F('range'), MINR = F('minRange');
@@ -57,6 +57,8 @@ export class Sim {
     this.cnt = new Int32Array(2 * NT); this.cnt0 = new Int32Array(2 * NT);
     this.cx = [0, 0]; this.cy = [0, 0];
     this.g = makeGrid(CELL, cap); this.tg = [makeGrid(TCELL, cap), makeGrid(TCELL, cap)];
+    this.mods = [null, null]; // per-team upgrade modifiers (upgrades.js buildMods); null = base balance
+    this.adj = new Uint8Array(cap); // shield wall: square with a friendly square touching
     this.blocked = null; // hook: Uint8Array over a coarse grid (terrain, later rounds)
     // projectiles (pooled)
     this.pn = 0;
@@ -72,13 +74,15 @@ export class Sim {
     this.evA = new Uint8Array(EVCAP); this.evB = new Float32Array(EVCAP);
   }
 
+  setMods(team, m) { this.mods[team] = m; }
+
   spawn(team, type, x, y) {
     if (this.n >= this.cap) return -1;
     const i = this.n++;
     this.x[i] = this.px[i] = x; this.y[i] = this.py[i] = y;
     this.vx[i] = this.vy[i] = 0;
     this.type[i] = type; this.team[i] = team; this.alive[i] = 1;
-    this.hp[i] = HP[type]; this.cd[i] = this.rng.next() * CD[type]; this.chg[i] = 0;
+    this.hp[i] = HP[type] * (this.mods[team] ? this.mods[team].hp[type] : 1); this.cd[i] = this.rng.next() * CD[type]; this.chg[i] = 0;
     this.tgt[i] = -1; this.flash[i] = 0; this.phase[i] = this.rng.int(RETARGET); this.ang[i] = team === 0 ? 0 : Math.PI;
     this.cnt[team * NT + type]++; this.cnt0[team * NT + type]++;
     return i;
@@ -104,7 +108,10 @@ export class Sim {
   hurt(i, srcType, base, bonus) {
     if (!this.alive[i]) return;
     const dt = this.type[i];
-    const d = base * MULT[srcType][dt] * (1 - ARMOR[dt] * (1 - PIERCE[srcType])) * bonus;
+    let d = base * MULT[srcType][dt] * (1 - ARMOR[dt] * (1 - PIERCE[srcType])) * bonus;
+    const am = this.mods[1 - this.team[i]], dm = this.mods[this.team[i]];
+    if (am && srcType === T.ARCHER && dt === T.SQUARE) d *= am.vsSquare;
+    if (dm && dm.wall && dt === T.SQUARE && this.adj[i]) d *= 1 - dm.wall;
     this.hp[i] -= d; this.flash[i] = 4;
     if (this.hp[i] <= 0) this.kill(i);
   }
@@ -202,7 +209,8 @@ export class Sim {
         const u = Math.min(1, this.pT[p] / this.pDur[p]);
         this.pX[p] = this.pX0[p] + (this.pTX[p] - this.pX0[p]) * u;
         this.pY[p] = this.pY0[p] + (this.pTY[p] - this.pY0[p]) * u;
-        if (u >= 1) { this.splashAt(team, src, this.pTX[p], this.pTY[p], SPLASH[src], DMG[src]); this.freeP(p); }
+        const pm = this.mods[team];
+        if (u >= 1) { this.splashAt(team, src, this.pTX[p], this.pTY[p], SPLASH[src] * (pm ? pm.splash : 1), DMG[src] * (pm ? pm.dmg[src] : 1)); this.freeP(p); }
       } else {
         const tg = this.pTgt[p];
         if (tg >= 0 && this.alive[tg]) { this.pTX[p] = this.x[tg]; this.pTY[p] = this.y[tg]; }
@@ -210,7 +218,7 @@ export class Sim {
         const step = ARROW_SPEED * DT;
         if (d <= step + 2) {
           let v = (tg >= 0 && this.alive[tg]) ? tg : this.nearestEnemyAt(team, this.pTX[p], this.pTY[p], 9);
-          if (v >= 0) { this.hurt(v, src, DMG[src], 1); this.ev(EV.HIT, this.x[v], this.y[v], team, 0); }
+          if (v >= 0) { this.hurt(v, src, DMG[src] * (this.mods[team] ? this.mods[team].dmg[src] : 1), 1); this.ev(EV.HIT, this.x[v], this.y[v], team, 0); }
           this.freeP(p);
         } else {
           this.pVX[p] = dx / d * ARROW_SPEED; this.pVY[p] = dy / d * ARROW_SPEED;
@@ -252,7 +260,8 @@ export class Sim {
     for (let o = 0; o < no; o++) {
       const i = ordA[o];
       if (!alive[i]) continue;
-      const t = type[i], tm = team[i];
+      const t = type[i], tm = team[i], m = this.mods[tm];
+      const dmgM = m ? m.dmg[t] : 1, spdM = m ? m.spd[t] : 1, rngM = m ? m.rng[t] : 1;
       if (cd[i] > 0) cd[i] -= DT;
       if (chg[i] > 0) chg[i] -= DT;
       if (flash[i] > 0) flash[i]--;
@@ -264,15 +273,15 @@ export class Sim {
         const tt = type[tg], contact = R[t] + R[tt] + 1.2;
         let ranged = KIND[t] !== ATK.MELEE, reach;
         if (ranged && d < MINR[t]) ranged = false;
-        reach = ranged ? RANGE[t] * 0.94 : contact;
+        reach = ranged ? RANGE[t] * rngM * 0.94 : contact;
         faceX = dx / d; faceY = dy / d;
-        if (d > reach) { dvx = faceX * SPEED[t]; dvy = faceY * SPEED[t]; }
+        if (d > reach) { dvx = faceX * SPEED[t] * spdM; dvy = faceY * SPEED[t] * spdM; }
         else if (cd[i] <= 0) {
           cd[i] = CD[t] * (0.9 + 0.2 * rng.next());
           if (!ranged) {
             let bonus = 1;
-            if (t === T.RIDER && chg[i] <= 0) { bonus = 1 + (CHARGE.mul - 1) * (1 - CHARGE.resist[tt]); chg[i] = CHARGE.rearm; }
-            this.hurt(tg, t, KIND[t] === ATK.BOULDER ? SIEGE_MELEE_DMG : DMG[t], bonus);
+            if (t === T.RIDER && chg[i] <= 0) { bonus = 1 + (CHARGE.mul - 1) * (1 - CHARGE.resist[tt]) * (m ? m.charge : 1); chg[i] = CHARGE.rearm; }
+            this.hurt(tg, t, KIND[t] === ATK.BOULDER ? SIEGE_MELEE_DMG : DMG[t] * dmgM, bonus);
             if (bonus > 1 || (tick + i) % 3 === 0) this.ev(EV.HIT, x[tg], y[tg], tm, bonus > 1 ? 1 : 0);
           } else if (KIND[t] === ATK.ARROW) {
             this.addProjectile(ATK.ARROW, tm, t, x[i], y[i], x[tg], y[tg], tg);
@@ -289,7 +298,8 @@ export class Sim {
       let nx = x[i] + vx[i] * DT, ny = y[i] + vy[i] * DT;
       // separation (position-based, mass weighted)
       const ri = R[t], mi = MASS[t], nx0 = nx, ny0 = ny;
-      let sx = 0, sy = 0;
+      let sx = 0, sy = 0, adjF = 0;
+      const wallOn = m !== null && m.wall > 0 && t === T.SQUARE;
       let cx = (nx / gcell) | 0, cy = (ny / gcell) | 0;
       cx = cx < 0 ? 0 : cx >= gc ? gc - 1 : cx; cy = cy < 0 ? 0 : cy >= gr ? gr - 1 : cy;
       const ya = cy > 0 ? cy - 1 : 0, yb = cy < gr - 1 ? cy + 1 : gr - 1, xa = cx > 0 ? cx - 1 : 0, xb = cx < gc - 1 ? cx + 1 : gc - 1;
@@ -301,6 +311,7 @@ export class Sim {
             if (j === i || !alive[j]) continue;
             const tj = type[j], md = ri + R[tj] + SEP;
             const ddx = nx0 - x[j], ddy = ny0 - y[j], d2 = ddx * ddx + ddy * ddy;
+            if (wallOn && tj === T.SQUARE && team[j] === tm && d2 < (md + 6) * (md + 6)) adjF = 1;
             if (d2 < md * md) {
               if (d2 < 1e-6) { const a = ((i * 7919 + j * 104729) % 628) / 100; sx += Math.cos(a) * 0.3; sy += Math.sin(a) * 0.3; continue; }
               const d = Math.sqrt(d2), push = (md - d) * (MASS[tj] / (mi + MASS[tj])) * STIFF / d;
@@ -309,6 +320,7 @@ export class Sim {
           }
         }
       }
+      this.adj[i] = adjF;
       const sl = sx * sx + sy * sy; // order-independent: all pushes are summed from the same start point, then capped
       if (sl > MAXPUSH * MAXPUSH) { const k = MAXPUSH / Math.sqrt(sl); sx *= k; sy *= k; }
       nx += sx; ny += sy;

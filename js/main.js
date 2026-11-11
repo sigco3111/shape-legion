@@ -1,14 +1,15 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111102';
-import { DT, NT, UNITS } from './units.js?v=2026111102';
-import { PRESETS, setupBattle } from './formation.js?v=2026111102';
-import { Renderer } from './render.js?v=2026111102';
-import { createUI } from './ui.js?v=2026111102';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111102';
-import { newSeed } from './rng.js?v=2026111102';
-import * as audio from './audio.js?v=2026111102';
-import { STAGES, loadSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111102';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111102';
+import { Sim } from './sim.js?v=2026111103';
+import { DT, NT, UNITS } from './units.js?v=2026111103';
+import { PRESETS, setupBattle } from './formation.js?v=2026111103';
+import { Renderer } from './render.js?v=2026111103';
+import { createUI } from './ui.js?v=2026111103';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111103';
+import { newSeed } from './rng.js?v=2026111103';
+import * as audio from './audio.js?v=2026111103';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111103';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111103';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111103';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -42,9 +43,19 @@ const ui = createUI({
   onReplay: () => (G.camp ? startFight() : startBattle(settings.preset, G.seed, false)),
   onNew: () => startBattle(settings.preset, newSeed(), false),
   onMenu: () => (G.camp ? toStages() : toMenu()),
-  onTexts: () => { if (G.screen === 'stages') ui.buildStages(SAVE); if (G.camp) { ui.setDeploy(STAGES[G.camp.idx], G.camp.idx); G.camp.dirty = true; } },
+  onTexts: () => { if (G.screen === 'stages') ui.buildStages(SAVE); if (G.screen === 'upgrades') ui.buildUpgrades(SAVE); if (G.camp) { ui.setDeploy(STAGES[G.camp.idx], G.camp.idx); G.camp.dirty = true; } },
   onCampaign: () => { audio.unlock(); toStages(); },
   onStagePick: (i) => startDeploy(i),
+  mods: () => buildMods(SAVE.up),
+  onUpgrades: () => toUpgrades(),
+  onUpgradesBack: () => toStages(),
+  onUpgradesRefresh: () => ui.buildUpgrades(SAVE),
+  onBuy: (k, a, b) => {
+    const ok = k === 'pop' ? buyPop(SAVE) : k === 'stat' ? buyStat(SAVE, a, b) : buyTech(SAVE, a, b);
+    if (ok) { storeSave(SAVE); console.log(`[upgrade] ${k} ${a ?? ''} ${b ?? ''} gold=${SAVE.gold}`); }
+    ui.buildUpgrades(SAVE); return ok;
+  },
+  onReset: () => { SAVE = resetSave(); console.log('[save] reset'); if (G.camp || G.screen === 'stages' || G.screen === 'upgrades') toStages(); ui.toast(t('set.reset.done'), 2500); },
   isDeploy: () => G.screen === 'deploy',
   toWorld: (sx, sy) => [R.cam.x + (sx - R.vw / 2) / R.cam.zoom, R.cam.y + (sy - R.vh / 2) / R.cam.zoom],
   onDeployType: (ty) => { const d = G.camp.dep; d.type = ty; d.erase = false; G.camp.dirty = true; },
@@ -94,10 +105,14 @@ function toStages() {
   G.screen = 'stages'; G.camp = null; R.overlay = null; ui.setCampaignHud(false); ui.showScreen('stages'); ui.buildStages(SAVE);
   if (!G.ambient) startAmbient();
 }
+function toUpgrades() {
+  G.screen = 'upgrades'; G.camp = null; R.overlay = null; ui.setCampaignHud(false); ui.showScreen('upgrades'); ui.buildUpgrades(SAVE);
+  if (!G.ambient) startAmbient();
+}
 function startDeploy(idx, cells) {
-  const st = STAGES[idx], dep = new Deploy(st, cells);
+  const st = effStage(STAGES[idx], buildMods(SAVE.up)), dep = new Deploy(st, cells); // st = stage with upgrade-adjusted budget / population cap
   const sim = G.camp && G.camp.prevSim ? G.camp.prevSim : new Sim({ cap: 3200, seed: st.seed, events: false });
-  G.camp = { idx, dep, prevSim: sim, dirty: true, hover: null, lastVer: -1 };
+  G.camp = { idx, st, dep, prevSim: sim, dirty: true, hover: null, lastVer: -1 };
   clearTimeout(G.ambientTimer); G.screen = 'deploy'; G.ambient = false; G.paused = false; G.speed = 1; G.bannerShown = false;
   ui.setCampaignHud(true); ui.setPaused(false); ui.setSpeed(1); ui.showScreen('deploy'); ui.setDeploy(st, idx);
   G.sim = sim; G.seed = st.seed; G.acc = 0; R.clearFx();
@@ -107,7 +122,8 @@ function startDeploy(idx, cells) {
 function startFight() {
   const cp = G.camp; if (!cp) return;
   if (cp.dep.pop === 0) { ui.toast(t('dep.empty'), 2500); return; }
-  const st = STAGES[cp.idx], sim = new Sim({ cap: 3200, seed: st.seed, events: true });
+  const st = cp.st, sim = new Sim({ cap: 3200, seed: st.seed, events: true });
+  sim.setMods(0, buildMods(SAVE.up)); // upgrades apply to the player team only; the sim's base table is untouched
   fillSim(sim, st, cp.dep);
   G.sim = sim; G.seed = st.seed; G.screen = 'battle'; G.ambient = false; G.acc = 0; G.history = []; G.nextLog = 5; G.bannerShown = false; G.simMs = 0; G.simTicks = 0;
   R.clearFx(); R.overlay = null; cp.hover = null;
@@ -182,7 +198,7 @@ function frame(ts) {
   if (!sim) return;
   const sp = G.ambient ? 1 : G.speed;
   const deploying = G.screen === 'deploy';
-  if (deploying && G.camp.dirty) { G.camp.dirty = false; fillPreview(sim, STAGES[G.camp.idx], G.camp.dep); ui.updateDeploy(G.camp.dep, STAGES[G.camp.idx]); }
+  if (deploying && G.camp.dirty) { G.camp.dirty = false; fillPreview(sim, G.camp.st, G.camp.dep); ui.updateDeploy(G.camp.dep, G.camp.st); }
   if (!G.paused && !sim.over && !deploying) {
     G.acc += (dtMs / 1000) * sp;
     if (G.acc > 0.3) G.acc = 0.3;
@@ -243,7 +259,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111102').then(async (m) => {
+  import('./selftest.js?v=2026111103').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;

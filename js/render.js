@@ -1,6 +1,6 @@
 // Canvas 2D renderer: sprite atlas, static background, batched drawImage, additive glow/bloom, pooled FX.
-import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111102';
-import { EV } from './sim.js?v=2026111102';
+import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111103';
+import { EV } from './sim.js?v=2026111103';
 
 const TAU = Math.PI * 2, DIRS = 16, CELLW = 28; // atlas cell size in world units
 const MAXP = 7000, MAXR = 300;

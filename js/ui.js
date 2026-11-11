@@ -1,15 +1,16 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111102';
-import { PRESETS } from './formation.js?v=2026111102';
-import { NT, UNITS } from './units.js?v=2026111102';
-import { STAGES, enemyCounts } from './stages.js?v=2026111102';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111103';
+import { PRESETS } from './formation.js?v=2026111103';
+import { NT, UNITS } from './units.js?v=2026111103';
+import { STAGES, enemyCounts } from './stages.js?v=2026111103';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111103';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
 
 export function createUI(h) {
   const el = {};
-  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setShake', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result']
+  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setShake', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result', 'upgrades']
     .forEach((k) => (el[k] = $(k)));
   const ui = { el, preset: h.settings.preset };
 
@@ -47,6 +48,7 @@ export function createUI(h) {
     el.hud.classList.toggle('hidden', name !== 'battle');
     el.stages.classList.toggle('hidden', name !== 'stages');
     el.deploy.classList.toggle('hidden', name !== 'deploy');
+    el.upgrades.classList.toggle('hidden', name !== 'upgrades');
     if (name !== 'result') el.result.classList.add('hidden');
     el.view.style.cursor = name === 'deploy' ? 'crosshair' : '';
     if (name !== 'battle') ui.hideBanner();
@@ -57,11 +59,12 @@ export function createUI(h) {
   ui.buildStages = (save) => {
     $('goldTxt').textContent = save.gold;
     const box = $('stageList'); box.innerHTML = '';
+    const md = buildMods(save.up);
     STAGES.forEach((st, i) => {
-      const locked = i + 1 > save.unlocked, b = document.createElement('button');
+      const es = effStage(st, md), locked = i + 1 > save.unlocked, b = document.createElement('button');
       b.type = 'button'; b.className = 'stage' + (locked ? ' locked' : ''); b.disabled = locked;
       const n = save.stars[i];
-      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: st.budget, c: st.cap })}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
+      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap })}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
       b.onclick = () => h.onStagePick(i);
       box.appendChild(b);
     });
@@ -86,10 +89,66 @@ export function createUI(h) {
       b.children[1].textContent = t('unit.' + ty); b.children[3].textContent = dep.counts[ty];
       b.setAttribute('aria-checked', String(!dep.erase && dep.type === ty)); b.classList.toggle('poor', !dep.canAfford(ty));
     });
+    const md = h.mods(); $('dBrush4').classList.toggle('hidden', md.brushMax < 4); ui.setInfo(dep.type, md);
     $('dBrush').querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.brush === dep.brush));
     $('dErase').classList.toggle('on', dep.erase); $('dUndo').disabled = !dep.strokes.length;
     if (dep.limitHit) { dep.limitHit = false; $('dBudget').classList.add('full'); $('dPop').classList.add('full'); clearTimeout(fullT); fullT = setTimeout(() => { $('dBudget').classList.remove('full'); $('dPop').classList.remove('full'); }, 500); }
   };
+  const pctTxt = (mul) => (mul > 1.0001 ? ` <i>(+${Math.round((mul - 1) * 100)}%)</i>` : '');
+  ui.setInfo = (ty, md) => {
+    const e = effStats(ty, md), perks = [];
+    if (ty === 1 && md.wall) perks.push(t('info.wall', { n: Math.round(md.wall * 100) }));
+    if (ty === 2 && md.vsSquare > 1) perks.push(t('info.pierce', { n: Math.round((md.vsSquare - 1) * 100) }));
+    if (ty === 3 && md.charge > 1) perks.push(t('info.charge', { n: Math.round((md.charge - 1) * 100) }));
+    if (ty === 4 && md.splash > 1) perks.push(t('info.splash', { n: Math.round((md.splash - 1) * 100) }));
+    const mob = e.range > 0 ? `${t('info.rng')} <b>${Math.round(e.range)}</b>${pctTxt(e.mul.range)}` : `${t('info.spd')} <b>${Math.round(e.speed)}</b>${pctTxt(e.mul.speed)}`;
+    $('dInfo').innerHTML = `<i class="sh t${ty} b"></i><b>${t('unit.' + ty)}</b> ${t('info.hp')} <b>${Math.round(e.hp)}</b>${pctTxt(e.mul.hp)} · ${t('info.dmg')} <b>${e.dmg.toFixed(1)}</b>${pctTxt(e.mul.dmg)} · ${mob}${perks.length ? ' · <em>' + perks.join(' · ') + '</em>' : ''}`;
+  };
+  // ---- upgrade screen ----
+  let upTab = 'army';
+  ui.buildUpgrades = (save) => {
+    $('upGold').textContent = save.gold;
+    $('upTabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.tab === upTab));
+    const box = $('upBody'); box.innerHTML = '';
+    const up = save.up;
+    const mk = (parent, cls, html, cost, state, fn) => { // state: 'buy' | 'max' | 'locked'
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'ub ' + cls + (state === 'max' ? ' owned' : '');
+      const afford = save.gold >= cost;
+      b.innerHTML = `${html}<small>${state === 'max' ? t('up.owned') : state === 'locked' ? t('up.locked') : cost + 'G'}</small>`;
+      if (state === 'locked' || state === 'max') b.disabled = true; else { b.classList.toggle('poor', !afford); b.onclick = () => { if (!afford) { ui.toast(t('up.need'), 1800); return; } h.onBuy(...fn); }; }
+      parent.appendChild(b); return b;
+    };
+    if (upTab === 'army') {
+      const sec = document.createElement('div'); sec.className = 'urow';
+      sec.innerHTML = `<div class="uhead"><b>${t('up.pop')}</b><span class="dim">${t('up.pop.d', { n: POP.step })}</span></div>`;
+      const lv = up.pop, mx = POP.cost.length;
+      mk(sec, 'wide', `<b>${t('up.lv', { l: lv, m: mx })}</b><span>+${lv * POP.step}</span>`, POP.cost[lv], lv >= mx ? 'max' : 'buy', ['pop']);
+      box.appendChild(sec);
+      for (let ty = 0; ty < UNITS.length; ty++) {
+        const r = document.createElement('div'); r.className = 'urow';
+        r.innerHTML = `<div class="uhead"><i class="sh t${ty} b"></i><b>${t('unit.' + ty)}</b></div>`;
+        const g = document.createElement('div'); g.className = 'ugrid';
+        STAT_KEYS.forEach((k, ki) => {
+          const l = up.st[ty][ki], nm = t('up.' + (k === 'mob' ? mobKey(ty) : k));
+          mk(g, '', `<b>${nm}</b><span>${t('up.lv', { l, m: MAXLV })} · +${Math.round(STAT_PCT[k] * l * 100)}%</span>`, l < MAXLV ? statCost(ty, l) : 0, l >= MAXLV ? 'max' : 'buy', ['stat', ty, ki]);
+        });
+        r.appendChild(g); box.appendChild(r);
+      }
+    } else {
+      TECH.forEach((br, bi) => {
+        const r = document.createElement('div'); r.className = 'urow';
+        r.innerHTML = `<div class="uhead"><b>${t('tech.' + br.id)}</b><span class="dim">${up.tech[bi]}/3</span></div>`;
+        const g = document.createElement('div'); g.className = 'ugrid';
+        br.nodes.forEach((nd, ni) => {
+          const own = up.tech[bi] > ni, state = own ? 'max' : up.tech[bi] === ni ? 'buy' : 'locked';
+          mk(g, 'node', `<b>${t('tech.' + br.id + '.' + (ni + 1))}</b><span>${t('tech.' + br.id + '.' + (ni + 1) + '.d')}</span>`, nd.cost, state, ['tech', bi, ni]);
+        });
+        r.appendChild(g); box.appendChild(r);
+      });
+    }
+  };
+  $('upTabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { upTab = b.dataset.tab; h.onUpgradesRefresh(); } };
+  $('upgradesBtn').onclick = () => h.onUpgrades(); $('resUpg').onclick = () => h.onUpgrades(); $('upBack').onclick = () => h.onUpgradesBack();
   ui.setDeploy = (st, idx) => {
     $('dStage').textContent = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
     $('dDesc').textContent = t('stage.' + st.id + '.desc');
@@ -161,10 +220,13 @@ export function createUI(h) {
     const s = h.settings; autoOpt();
     el.setCap.value = String(s.cap); el.setVol.value = s.volume; el.setShake.checked = s.shake;
     el.setFx.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.fx === s.fx));
-    el.settings.classList.remove('hidden');
+    el.settings.classList.remove('hidden'); resetBox(false);
   };
   const closeSettings = () => el.settings.classList.add('hidden');
-  $('setClose').onclick = closeSettings;
+  const resetBox = (on) => { $('setResetBox').classList.toggle('hidden', !on); $('setReset').classList.toggle('hidden', on); };
+  $('setReset').onclick = () => resetBox(true); $('setResetNo').onclick = () => resetBox(false);
+  $('setResetYes').onclick = () => { resetBox(false); closeSettings(); h.onReset(); };
+  $('setClose').onclick = () => { resetBox(false); closeSettings(); };
   el.setLang.onclick = (e) => { const b = e.target.closest('button'); if (b) { setLang(b.dataset.lang); h.onLang(b.dataset.lang); autoOpt(); } };
   el.setCap.onchange = () => { h.onSetting('cap', el.setCap.value === 'auto' ? 'auto' : +el.setCap.value); ui.buildPresets(); };
   el.setVol.oninput = () => h.onSetting('volume', +el.setVol.value);
