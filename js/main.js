@@ -1,18 +1,18 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111107';
-import { DT, NT, UNITS } from './units.js?v=2026111107';
-import { PRESETS, setupBattle } from './formation.js?v=2026111107';
-import { Renderer } from './render.js?v=2026111107';
-import { createUI } from './ui.js?v=2026111107';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111107';
-import { newSeed } from './rng.js?v=2026111107';
-import * as audio from './audio.js?v=2026111107';
-import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111107';
-import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111107';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111107';
-import { terrainFor } from './terrain.js?v=2026111107';
-import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111107';
-import { SK } from './units.js?v=2026111107';
+import { Sim } from './sim.js?v=2026111108';
+import { DT, NT, UNITS } from './units.js?v=2026111108';
+import { PRESETS, setupBattle } from './formation.js?v=2026111108';
+import { Renderer } from './render.js?v=2026111108';
+import { createUI } from './ui.js?v=2026111108';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111108';
+import { newSeed } from './rng.js?v=2026111108';
+import * as audio from './audio.js?v=2026111108';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111108';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111108';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111108';
+import { terrainFor } from './terrain.js?v=2026111108';
+import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111108';
+import { SK } from './units.js?v=2026111108';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -297,7 +297,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111107').then(async (m) => {
+  import('./selftest.js?v=2026111108').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;

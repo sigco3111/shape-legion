@@ -1,7 +1,7 @@
 // Deploy phase logic (no DOM): snapped grid painting, budget/population limits, undo, sim filling, canvas overlay.
-import { UNITS, NT, ARENA } from './units.js?v=2026111107';
-import { GRID, gridX, gridY, enemyCells, deployBlocked } from './stages.js?v=2026111107';
-import { terrainFor } from './terrain.js?v=2026111107';
+import { UNITS, NT, ARENA } from './units.js?v=2026111108';
+import { GRID, gridX, gridY, enemyCells, deployBlocked } from './stages.js?v=2026111108';
+import { terrainFor } from './terrain.js?v=2026111108';
 
 export class Deploy {
   constructor(stage, cells) {

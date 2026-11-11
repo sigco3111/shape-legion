@@ -1,12 +1,13 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111107';
-import { PRESETS } from './formation.js?v=2026111107';
-import { NT, UNITS } from './units.js?v=2026111107';
-import { STAGES, enemyCounts } from './stages.js?v=2026111107';
-import { SKILLS, cooldownLeft } from './skills.js?v=2026111107';
-import * as audio from './audio.js?v=2026111107';
-import { terrainFor, TERR_ICON } from './terrain.js?v=2026111107';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111107';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111108';
+import { PRESETS } from './formation.js?v=2026111108';
+import { NT, UNITS } from './units.js?v=2026111108';
+import { STAGES, enemyCounts } from './stages.js?v=2026111108';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111108';
+import * as audio from './audio.js?v=2026111108';
+import { terrainFor, TERR_ICON } from './terrain.js?v=2026111108';
+import { iconSvg, unitIcon } from './icons.js?v=2026111108';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111108';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
@@ -63,7 +64,7 @@ export function createUI(h) {
   ui.setCampaignHud = (on) => { el.hud.classList.toggle('campaign', on); $('help').dataset.i18n = on ? 'hud.help.camp' : 'hud.help'; $('help').textContent = t(on ? 'hud.help.camp' : 'hud.help'); };
 
   // ---- campaign: stage select, deploy panel, result ----
-  ui.buildStages = (save) => {
+  const buildStagesLegacy = (save) => { // old stage list (index.html without #stageMap)
     $('goldTxt').textContent = save.gold;
     const box = $('stageList'); box.innerHTML = '';
     const md = buildMods(save.up);
@@ -77,6 +78,91 @@ export function createUI(h) {
       box.appendChild(b);
     });
   };
+  // ---- stage select: mission map terminal (pixel-grid tactical map + briefing panel) ----
+  const MAP_W = 720, MAP_H = 400;
+  const NODES = [[60, 320], [150, 240], [260, 320], [370, 240], [480, 320], [590, 240], [670, 150], [560, 70], [400, 110], [150, 70]]; // route order, stage 1 -> 10
+  const nodePos = (i) => NODES[i] || [60 + (i % 7) * 100, i % 2 ? 240 : 320];
+  const ecCache = new Map();
+  let sel = -1, cur = null;
+  const isOpen = (i) => !!cur && i + 1 <= cur.unlocked;
+  const frontier = (save) => { const i = save.stars.findIndex((n, k) => n === 0 && k < save.unlocked); return i >= 0 ? i : Math.min(save.unlocked, STAGES.length) - 1; };
+  const starRow = (n, px, all) => [0, 1, 2].map((k) => (k < n || all ? iconSvg('star', px, k < n ? '' : 'off') : '')).join('');
+  const nodeHtml = (i) => {
+    const st = STAGES[i], lk = !isOpen(i), n = cur.stars[i], [x, y] = nodePos(i), tr = terrainFor(st), tags = tr ? tr.tags : [];
+    const stat = lk ? t('stage.locked') : n > 0 ? t('stage.st.clear') : t('stage.st.open');
+    return `<button type="button" class="nd ${lk ? 'lk' : n > 0 ? 'ok' : 'av'}" data-i="${i}" style="left:${(x / MAP_W * 100).toFixed(3)}%;top:${(y / MAP_H * 100).toFixed(3)}%" aria-label="${t('stage.n', { n: i + 1 })}${lk ? '' : ' ' + t('stage.' + st.id)} - ${stat}${n > 0 ? ' ' + n + '/3' : ''}"${lk ? ' aria-disabled="true"' : ''}><span class="tr">${tags.map((k) => iconSvg(k, 2)).join('')}</span><span class="pl">${lk ? iconSvg('lock', 3) : i + 1}</span><span class="sr">${n > 0 ? starRow(n, 2, true) : ''}</span></button>`;
+  };
+  const mapSvg = () => {
+    let g = '', rt = '';
+    for (let x = 0; x <= MAP_W; x += 40) for (let y = 0; y <= MAP_H; y += 40) g += `M${x - 1} ${y - 1}h2v2h-2z`;
+    for (let i = 0; i + 1 < STAGES.length; i++) {
+      const [ax, ay] = nodePos(i), [bx, by] = nodePos(i + 1);
+      rt += `<path class="rt${isOpen(i + 1) ? ' on' : ''}" d="M${ax} ${ay}H${bx}V${by}"/>`;
+    }
+    let lab = ''; for (let k = 0; k < 18; k++) lab += `<text x="${20 + k * 40}" y="12" text-anchor="middle">${String.fromCharCode(65 + k)}</text>`;
+    for (let k = 1; k < 10; k++) lab += `<text x="6" y="${k * 40 + 3}">${k}</text>`;
+    return `<svg class="map-svg" viewBox="0 0 ${MAP_W} ${MAP_H}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="mg" d="${g}"/><g class="ml">${lab}</g>${rt}</svg>`;
+  };
+  const briefHtml = () => {
+    const i = sel, st = STAGES[i], es = effStage(st, buildMods(cur.up)), n = cur.stars[i], tr = terrainFor(st);
+    let ec = ecCache.get(st.id); if (!ec) ecCache.set(st.id, (ec = enemyCounts(st)));
+    const low = es.budget < st.rec * 0.85;
+    const terr = tr ? tr.tags.map((k) => `<span class="tg">${iconSvg(k, 2)}${t('terr.' + k)}</span>`).join('') : `<span class="dim">${t('terr.none')}</span>`;
+    const enemy = ec.map((c, ty) => (c ? `<span class="ec" title="${t('unit.' + ty)}">${unitIcon(ty, 2, 'r')}<b>${c}</b><small>${t('unit.' + ty)}</small></span>` : '')).join('');
+    return `<div class="bh"><span>${t('stage.n', { n: i + 1 })}</span><em>${n > 0 ? t('stage.st.clear') : t('stage.st.open')}</em></div>
+<h2>${t('stage.' + st.id)}</h2><p class="bd">${t('stage.' + st.id + '.desc')}</p>
+<div class="kv"><div><span>${t('stage.budget')}</span><b>${es.budget}G</b></div><div><span>${t('stage.rec')}</span><b>${st.rec}G</b></div><div><span>${t('stage.gold')}</span><b>${cur.gold}G</b></div><div><span>${t('stage.pop')}</span><b>${es.cap}</b></div></div>
+${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
+<div class="lg"><span>${t('terr.label')}</span><div class="tgs">${terr}</div></div>
+<div class="lg"><span>${t('stage.enemy')}</span><div class="ecs">${enemy}</div></div>
+<div class="lg col"><span>${t('stage.rule')}</span><div class="rule"><span>${starRow(1, 2)} ${t('stage.r1')}</span><span>${starRow(2, 2)} ${t('stage.r2')}</span><span>${starRow(3, 2)} ${t('stage.r3')}</span></div></div>
+<div class="lg"><span>${t('stage.best')}</span><b class="bst">${n > 0 ? starRow(n, 2, true) : `<span class="dim">${t('stage.none')}</span>`}</b></div>`;
+  };
+  const go = () => { if (cur && sel >= 0 && isOpen(sel)) h.onStagePick(sel); };
+  function paintSel(focus) {
+    const map = $('stageMap'); if (!map) return;
+    map.querySelectorAll('.nd').forEach((b) => { const on = +b.dataset.i === sel; b.classList.toggle('sel', on); b.tabIndex = on ? 0 : -1; if (on) { b.setAttribute('aria-current', 'true'); if (focus) b.focus({ preventScroll: true }); } else b.removeAttribute('aria-current'); });
+    $('stageBrief').innerHTML = briefHtml();
+    const wrap = map.parentElement, b = map.querySelector('.nd.sel');
+    if (b && wrap && wrap.scrollWidth > wrap.clientWidth) wrap.scrollLeft = Math.max(0, b.offsetLeft - wrap.clientWidth / 2);
+  }
+  function selectStage(i, focus) { if (!isOpen(i)) return; sel = i; paintSel(focus); }
+  function navStage(dir) {
+    let j = sel;
+    if (dir === 'left' || dir === 'right') { const k = sel + (dir === 'right' ? 1 : -1); if (k >= 0 && k < STAGES.length && isOpen(k)) j = k; }
+    else {
+      const [cx, cy] = nodePos(sel); let bs = 1e9;
+      for (let k = 0; k < STAGES.length; k++) {
+        if (k === sel || !isOpen(k)) continue;
+        const [x, y] = nodePos(k), dx = x - cx, dy = y - cy;
+        if (dir === 'up' ? dy >= -10 : dy <= 10) continue;
+        const sc = dy * dy + 3 * dx * dx; if (sc < bs) { bs = sc; j = k; }
+      }
+    }
+    if (j !== sel) selectStage(j, true);
+  }
+  ui.buildStages = (save) => {
+    $('goldTxt').textContent = save.gold;
+    if (!$('stageMap')) return buildStagesLegacy(save);
+    cur = save; if (!(sel >= 0 && sel < STAGES.length && isOpen(sel))) sel = frontier(save);
+    const map = $('stageMap');
+    map.innerHTML = mapSvg() + STAGES.map((_, i) => nodeHtml(i)).join('');
+    paintSel(false);
+  };
+  { const map = $('stageMap'); if (map) map.onclick = (e) => {
+    const b = e.target.closest('.nd'); if (!b) return; const i = +b.dataset.i;
+    if (!isOpen(i)) { ui.toast(t('stage.locked.tap'), 1800); return; }
+    if (i === sel) go(); else selectStage(i, false);
+  }; }
+  { const g = $('stageGo'); if (g) g.onclick = go; }
+  addEventListener('keydown', (e) => {
+    if (!$('stageMap') || el.stages.classList.contains('hidden') || !cur || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!el.settings.classList.contains('hidden') || !el.credits.classList.contains('hidden')) return;
+    const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key];
+    if (dir) { e.preventDefault(); navStage(dir); }
+    else if (e.key === 'Enter' && !e.target.closest('button,a,select,input')) { e.preventDefault(); go(); }
+    else if (e.key === 'Escape') { e.preventDefault(); h.onMenu(); }
+  });
   const unitBtns = [];
   for (let ty = 0; ty < NT; ty++) {
     const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.type = ty;

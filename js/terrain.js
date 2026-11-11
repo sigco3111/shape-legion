@@ -1,6 +1,6 @@
 // Terrain data (no DOM): stage terrain spec -> 25-unit coarse grid (64 x 36). Shared by sim, renderer, deploy and stage data.
 // Spec: { river: { c0, c1, bridges: [[r0, r1], ...] }, walls: [[c0, r0, c1, r1], ...], hills: [[c0, r0, c1, r1], ...] } (cells inclusive).
-import { ARENA } from './units.js?v=2026111107';
+import { ARENA } from './units.js?v=2026111108';
 
 export const TC = 25, TCOLS = ARENA.w / TC, TROWS = ARENA.h / TC;
 export const K = { GROUND: 0, WATER: 1, WALL: 2, BRIDGE: 3, HILL: 4 };
