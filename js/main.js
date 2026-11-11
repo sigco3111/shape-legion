@@ -1,18 +1,18 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111108';
-import { DT, NT, UNITS } from './units.js?v=2026111108';
-import { PRESETS, setupBattle } from './formation.js?v=2026111108';
-import { Renderer } from './render.js?v=2026111108';
-import { createUI } from './ui.js?v=2026111108';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111108';
-import { newSeed } from './rng.js?v=2026111108';
-import * as audio from './audio.js?v=2026111108';
-import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111108';
-import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111108';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111108';
-import { terrainFor } from './terrain.js?v=2026111108';
-import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111108';
-import { SK } from './units.js?v=2026111108';
+import { Sim } from './sim.js?v=2026111109';
+import { DT, NT, UNITS } from './units.js?v=2026111109';
+import { PRESETS, setupBattle } from './formation.js?v=2026111109';
+import { Renderer } from './render.js?v=2026111109';
+import { createUI } from './ui.js?v=2026111109';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111109';
+import { newSeed } from './rng.js?v=2026111109';
+import * as audio from './audio.js?v=2026111109';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111109';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111109';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111109';
+import { terrainFor } from './terrain.js?v=2026111109';
+import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111109';
+import { SK } from './units.js?v=2026111109';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -52,6 +52,7 @@ const ui = createUI({
   onCampaign: () => { audio.unlock(); toStages(); },
   onStagePick: (i) => startDeploy(i),
   mods: () => buildMods(SAVE.up),
+  gold: () => SAVE.gold,
   onUpgrades: () => toUpgrades(),
   onUpgradesBack: () => toStages(),
   onUpgradesRefresh: () => ui.buildUpgrades(SAVE),
@@ -236,7 +237,7 @@ function frame(ts) {
   if (!sim) return;
   const sp = G.ambient ? 1 : G.speed;
   const deploying = G.screen === 'deploy';
-  if (deploying && G.camp.dirty) { G.camp.dirty = false; fillPreview(sim, G.camp.st, G.camp.dep); ui.updateDeploy(G.camp.dep, G.camp.st); }
+  if (deploying && G.camp.dirty) { G.camp.dirty = false; fillPreview(sim, G.camp.st, G.camp.dep); ui.updateDeploy(G.camp.dep, G.camp.st); if (!G.camp.refit) { G.camp.refit = true; if (!G.userCam) fitView(); } } // panel height is final after the first update
   if (!G.paused && !sim.over && !deploying) {
     G.acc += (dtMs / 1000) * sp;
     if (G.acc > 0.3) G.acc = 0.3;
@@ -297,7 +298,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111108').then(async (m) => {
+  import('./selftest.js?v=2026111109').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;

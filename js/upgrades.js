@@ -1,6 +1,6 @@
 // Upgrade data + logic (no DOM): population cap, per-type stat levels, 6-branch tech tree, and the battle modifier object.
 // The sim's base balance table (units.js) is never edited; buildMods() produces multipliers applied on top at battle start.
-import { UNITS, NT, T, HP_SCALE } from './units.js?v=2026111108';
+import { UNITS, NT, T, HP_SCALE } from './units.js?v=2026111109';
 
 export const MAXLV = 5;
 export const STAT_KEYS = ['hp', 'dmg', 'mob']; // mob = speed (melee types) or range (archer, siege)

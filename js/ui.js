@@ -1,13 +1,13 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111108';
-import { PRESETS } from './formation.js?v=2026111108';
-import { NT, UNITS } from './units.js?v=2026111108';
-import { STAGES, enemyCounts } from './stages.js?v=2026111108';
-import { SKILLS, cooldownLeft } from './skills.js?v=2026111108';
-import * as audio from './audio.js?v=2026111108';
-import { terrainFor, TERR_ICON } from './terrain.js?v=2026111108';
-import { iconSvg, unitIcon } from './icons.js?v=2026111108';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111108';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111109';
+import { PRESETS } from './formation.js?v=2026111109';
+import { NT, UNITS } from './units.js?v=2026111109';
+import { STAGES, enemyCounts } from './stages.js?v=2026111109';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111109';
+import * as audio from './audio.js?v=2026111109';
+import { terrainFor, TERR_ICON } from './terrain.js?v=2026111109';
+import { iconSvg, unitIcon } from './icons.js?v=2026111109';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111109';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
@@ -27,7 +27,7 @@ export function createUI(h) {
     const box = tm ? el.chipsRed : el.chipsBlue;
     for (let ty = 0; ty < NT; ty++) {
       const c = document.createElement('span'); c.className = 'chip';
-      c.innerHTML = `<i class="sh t${ty} ${tm ? 'r' : 'b'}"></i><span>0</span>`;
+      c.innerHTML = `${unitIcon(ty, 2, tm ? 'r' : 'b')}<span>0</span>`;
       box.appendChild(c); chipRefs[tm].push(c);
     }
   }
@@ -58,10 +58,11 @@ export function createUI(h) {
     el.upgrades.classList.toggle('hidden', name !== 'upgrades');
     if (name !== 'result') el.result.classList.add('hidden');
     el.view.style.cursor = name === 'deploy' ? 'crosshair' : '';
+    el.fps.dataset.scr = name; // CSS hides the readout on menu / stage / upgrade screens
     if (name !== 'battle') ui.hideBanner();
     if (name === 'menu') ui.startBoot(); else ui.finishBoot();
   };
-  ui.setCampaignHud = (on) => { el.hud.classList.toggle('campaign', on); $('help').dataset.i18n = on ? 'hud.help.camp' : 'hud.help'; $('help').textContent = t(on ? 'hud.help.camp' : 'hud.help'); };
+  ui.setCampaignHud = (on) => { el.hud.classList.toggle('campaign', on); { const hs = $('hStage'); if (hs) hs.textContent = on && ui.hudStage ? ui.hudStage : ''; } $('help').dataset.i18n = on ? 'hud.help.camp' : 'hud.help'; $('help').textContent = t(on ? 'hud.help.camp' : 'hud.help'); };
 
   // ---- campaign: stage select, deploy panel, result ----
   const buildStagesLegacy = (save) => { // old stage list (index.html without #stageMap)
@@ -166,7 +167,7 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
   const unitBtns = [];
   for (let ty = 0; ty < NT; ty++) {
     const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.type = ty;
-    b.innerHTML = `<i class="sh t${ty} b"></i><b></b><small>${UNITS[ty].cost}G</small><em>0</em>`;
+    b.innerHTML = `<span class="ico">${unitIcon(ty, 3, 'b')}</span><b></b><small>${UNITS[ty].cost}G</small><em>0</em>`;
     b.onclick = () => h.onDeployType(ty);
     $('dUnits').appendChild(b); unitBtns.push(b);
   }
@@ -175,12 +176,15 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
   $('dFight').onclick = () => h.onFight(); $('dBack').onclick = () => h.onDeployBack(); $('dFit').onclick = () => h.onFit();
   $('resRetry').onclick = () => h.onRetry(); $('resNext').onclick = () => h.onNext(); $('resMenu').onclick = () => h.onHome();
   let fullT = 0;
+  const blocks = (v, max) => Math.ceil(Math.min(1, v / Math.max(1, max)) * 20) * 5; // 20-block bar: width in 5 % steps
+  const setTxt = (n, v) => { if (n._v !== v) { n._v = v; n.textContent = v; } };
+  const setW = (n, v) => { if (n._w !== v) { n._w = v; n.style.width = v + '%'; } };
   ui.updateDeploy = (dep, st) => {
     const bud = st.budget, cap = st.cap;
-    $('dBudgetBar').style.width = Math.min(100, 100 * dep.cost / bud) + '%'; $('dBudgetTxt').textContent = `${t('dep.gold')} ${dep.cost}/${bud}`;
-    $('dPopBar').style.width = Math.min(100, 100 * dep.pop / cap) + '%'; $('dPopTxt').textContent = `${t('dep.pop')} ${dep.pop}/${cap}`;
+    setW($('dBudgetBar'), blocks(dep.cost, bud)); setTxt($('dBudgetTxt'), `${dep.cost}/${bud}G`);
+    setW($('dPopBar'), blocks(dep.pop, cap)); setTxt($('dPopTxt'), `${dep.pop}/${cap}`);
     unitBtns.forEach((b, ty) => {
-      b.children[1].textContent = t('unit.' + ty); b.children[3].textContent = dep.counts[ty];
+      setTxt(b.children[1], t('unit.' + ty)); setTxt(b.children[3], dep.counts[ty]);
       b.setAttribute('aria-checked', String(!dep.erase && dep.type === ty)); b.classList.toggle('poor', !dep.canAfford(ty));
     });
     const md = h.mods(); $('dBrush4').classList.toggle('hidden', md.brushMax < 4); ui.setInfo(dep.type, md);
@@ -196,10 +200,11 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
     if (ty === 3 && md.charge > 1) perks.push(t('info.charge', { n: Math.round((md.charge - 1) * 100) }));
     if (ty === 4 && md.splash > 1) perks.push(t('info.splash', { n: Math.round((md.splash - 1) * 100) }));
     const mob = e.range > 0 ? `${t('info.rng')} <b>${Math.round(e.range)}</b>${pctTxt(e.mul.range)}` : `${t('info.spd')} <b>${Math.round(e.speed)}</b>${pctTxt(e.mul.speed)}`;
-    $('dInfo').innerHTML = `<i class="sh t${ty} b"></i><b>${t('unit.' + ty)}</b> ${t('info.hp')} <b>${Math.round(e.hp)}</b>${pctTxt(e.mul.hp)} · ${t('info.dmg')} <b>${e.dmg.toFixed(1)}</b>${pctTxt(e.mul.dmg)} · ${mob}${perks.length ? ' · <em>' + perks.join(' · ') + '</em>' : ''}`;
+    $('dInfo').innerHTML = `${unitIcon(ty, 1, 'b')} <b>${t('unit.' + ty)}</b> ${t('info.hp')} <b>${Math.round(e.hp)}</b>${pctTxt(e.mul.hp)} · ${t('info.dmg')} <b>${e.dmg.toFixed(1)}</b>${pctTxt(e.mul.dmg)} · ${mob}${perks.length ? ' · <em>' + perks.join(' · ') + '</em>' : ''}`;
   };
   // ---- commander skills (battle HUD) ----
   const skBtns = [];
+  const setH = (n, v) => { if (n._h !== v) { n._h = v; n.style.height = v + '%'; } };
   SKILLS.forEach((sk, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'sk'; b.dataset.skill = i;
     b.innerHTML = `<kbd>${sk.key}</kbd><b></b><small></small><i class="cdf"></i><span class="cdt"></span>`;
@@ -215,11 +220,12 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
     if (!st) return;
     skBtns.forEach((b, i) => {
       const sk = SKILLS[i], cd = cooldownLeft(st, i, time), usable = st.unlocked[i] && st.uses[i] > 0;
-      b.children[1].textContent = t('skill.' + sk.id);
-      b.children[2].textContent = !st.unlocked[i] ? 'LOCK' : `×${st.uses[i]}`;
-      b.children[3].style.height = usable && cd > 0 ? Math.min(100, 100 * cd / sk.cd) + '%' : usable ? '0' : '100%';
-      b.children[4].textContent = usable && cd > 0 ? cd.toFixed(cd < 10 ? 1 : 0) : '';
-      b.classList.toggle('cd', usable && cd > 0); b.classList.toggle('off', !usable);
+      setTxt(b.children[1], t('skill.' + sk.id));
+      setTxt(b.children[2], !st.unlocked[i] ? 'LOCK' : `x${st.uses[i]}/${sk.uses}`);
+      const fill = usable && cd > 0 ? Math.ceil(Math.min(1, cd / sk.cd) * 10) * 10 : 0; // block fill in 10 % steps
+      setH(b.children[3], fill);
+      setTxt(b.children[4], usable && cd > 0 ? cd.toFixed(cd < 10 ? 1 : 0) : '');
+      b.classList.toggle('cd', usable && cd > 0); b.classList.toggle('off', !usable); b.classList.toggle('lk', !st.unlocked[i]);
       b.classList.toggle('ready', usable && cd <= 0); b.classList.toggle('aim', st.aim === i);
     });
     el.view.style.cursor = st.aim >= 0 ? 'crosshair' : '';
@@ -246,7 +252,7 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
       box.appendChild(sec);
       for (let ty = 0; ty < UNITS.length; ty++) {
         const r = document.createElement('div'); r.className = 'urow';
-        r.innerHTML = `<div class="uhead"><i class="sh t${ty} b"></i><b>${t('unit.' + ty)}</b></div>`;
+        r.innerHTML = `<div class="uhead">${unitIcon(ty, 2, 'b')}<b>${t('unit.' + ty)}</b></div>`;
         const g = document.createElement('div'); g.className = 'ugrid';
         STAT_KEYS.forEach((k, ki) => {
           const l = up.st[ty][ki], nm = t('up.' + (k === 'mob' ? mobKey(ty) : k));
@@ -270,9 +276,12 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
   $('upTabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { upTab = b.dataset.tab; h.onUpgradesRefresh(); } };
   $('upgradesBtn').onclick = () => h.onUpgrades(); $('resUpg').onclick = () => h.onUpgrades(); $('upBack').onclick = () => h.onUpgradesBack();
   ui.setDeploy = (st, idx) => {
-    $('dStage').textContent = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
-    { const tr = terrainFor(st); $('dLegend').innerHTML = tr ? tr.tags.map((k) => `<span>${TERR_ICON[k]} ${t('terr.' + k)}: ${t('legend.' + k)}</span>`).join(' · ') : ''; $('dDesc').textContent = (tr ? tr.tags.map((k) => TERR_ICON[k] + ' ' + t('terr.' + k)).join(' · ') + ' — ' : '') + t('stage.' + st.id + '.desc'); }
-    const ec = enemyCounts(st); $('dEnemy').innerHTML = ec.map((n, ty) => (n ? `<span class="chip" title="${t('unit.' + ty)}"><i class="sh t${ty} r"></i><span>${n}</span></span>` : '')).join('');
+    const name = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
+    $('dStage').textContent = name; ui.hudStage = name;
+    const hs = $('hStage'); if (hs) hs.textContent = name;
+    const wl = $('dWallet'); if (wl && h.gold) wl.textContent = h.gold() + 'G';
+    { const tr = terrainFor(st); $('dLegend').innerHTML = tr ? tr.tags.map((k) => `<span>${iconSvg(k, 1)} ${t('terr.' + k)}: ${t('legend.' + k)}</span>`).join(' · ') : ''; $('dDesc').innerHTML = (tr ? tr.tags.map((k) => iconSvg(k, 1) + ' ' + t('terr.' + k)).join(' · ') + ' — ' : '') + t('stage.' + st.id + '.desc'); }
+    const ec = enemyCounts(st); $('dEnemy').innerHTML = ec.map((n, ty) => (n ? `<span class="chip" title="${t('unit.' + ty)}">${unitIcon(ty, 2, 'r')}<span>${n}</span></span>` : '')).join('');
   };
   ui.showResult = (r) => {
     $('resTitle').textContent = t(r.draw ? 'res.draw' : r.win ? 'res.win' : 'res.lose'); $('resTitle').dataset.team = r.win ? 0 : 1;
@@ -297,13 +306,13 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
 
   ui.updateHud = (sim, seed) => {
     const a = sim.count(0), b = sim.count(1);
-    el.totBlue.textContent = a; el.totRed.textContent = b;
-    for (let tm = 0; tm < 2; tm++) for (let ty = 0; ty < NT; ty++) chipRefs[tm][ty].lastChild.textContent = sim.cnt[tm * NT + ty];
+    setTxt(el.totBlue, a); setTxt(el.totRed, b);
+    for (let tm = 0; tm < 2; tm++) for (let ty = 0; ty < NT; ty++) setTxt(chipRefs[tm][ty].lastChild, sim.cnt[tm * NT + ty]);
     const va = sim.value(0), vb = sim.value(1), tot = Math.max(1, va + vb);
-    el.meterBlue.style.width = (100 * va / tot).toFixed(1) + '%'; el.meterRed.style.width = (100 * vb / tot).toFixed(1) + '%';
+    const wb = Math.round(20 * va / tot) * 5; setW(el.meterBlue, wb); setW(el.meterRed, 100 - wb); // 20-block bar
     const s = Math.floor(sim.time);
-    el.timer.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    el.seedTxt.textContent = `${t('hud.seed')} ${seed}`;
+    setTxt(el.timer, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
+    setTxt(el.seedTxt, `${t('hud.seed')} ${seed}`);
   };
   const refreshTexts = () => {
     applyI18n(document);
@@ -314,7 +323,7 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
     $('menuLang').innerHTML = getLang() === 'ko' ? 'LANG: <b>[KO]</b> EN' : 'LANG: KO <b>[EN]</b>';
   };
   ui.refresh = refreshTexts;
-  ui.setPaused = (p) => { el.btnPause.textContent = p ? '▶\uFE0E' : 'II'; el.btnPause.title = t(p ? 'hud.play' : 'hud.pause'); };
+  ui.setPaused = (p) => { el.btnPause.textContent = p ? '>' : 'II'; el.btnPause.title = t(p ? 'hud.play' : 'hud.pause'); };
   ui.setSpeed = (s) => el.speedBtns.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.speed === s));
   ui.setFps = (on) => el.fps.classList.toggle('hidden', !on);
 
