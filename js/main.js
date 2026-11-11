@@ -1,15 +1,17 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111103';
-import { DT, NT, UNITS } from './units.js?v=2026111103';
-import { PRESETS, setupBattle } from './formation.js?v=2026111103';
-import { Renderer } from './render.js?v=2026111103';
-import { createUI } from './ui.js?v=2026111103';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111103';
-import { newSeed } from './rng.js?v=2026111103';
-import * as audio from './audio.js?v=2026111103';
-import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111103';
-import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111103';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111103';
+import { Sim } from './sim.js?v=2026111104';
+import { DT, NT, UNITS } from './units.js?v=2026111104';
+import { PRESETS, setupBattle } from './formation.js?v=2026111104';
+import { Renderer } from './render.js?v=2026111104';
+import { createUI } from './ui.js?v=2026111104';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111104';
+import { newSeed } from './rng.js?v=2026111104';
+import * as audio from './audio.js?v=2026111104';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111104';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111104';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111104';
+import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111104';
+import { SK } from './units.js?v=2026111104';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -32,7 +34,7 @@ const R = new Renderer(canvas);
 R.fx = settings.fx; R.shakeOn = settings.shake && R.shakeOn;
 audio.setVolume(settings.volume);
 
-const G = { screen: 'menu', sim: null, seed: 0, ambient: true, paused: false, speed: 1, acc: 0, perSide: 0, history: [], nextLog: 5, bannerShown: false, ambientTimer: 0, userCam: false, simMs: 0, simTicks: 0, fpsOn: settings.fps, camp: null };
+const G = { screen: 'menu', sim: null, seed: 0, ambient: true, paused: false, speed: 1, acc: 0, perSide: 0, history: [], nextLog: 5, bannerShown: false, ambientTimer: 0, userCam: false, simMs: 0, simTicks: 0, fpsOn: settings.fps, camp: null, sk: null, cursor: null };
 let SAVE = loadSave();
 window.__sl = { G, R, settings, get save() { return SAVE; }, get camp() { return G.camp; }, get sim() { return G.sim; }, startBattle: (...a) => startBattle(...a) };
 
@@ -43,7 +45,7 @@ const ui = createUI({
   onReplay: () => (G.camp ? startFight() : startBattle(settings.preset, G.seed, false)),
   onNew: () => startBattle(settings.preset, newSeed(), false),
   onMenu: () => (G.camp ? toStages() : toMenu()),
-  onTexts: () => { if (G.screen === 'stages') ui.buildStages(SAVE); if (G.screen === 'upgrades') ui.buildUpgrades(SAVE); if (G.camp) { ui.setDeploy(STAGES[G.camp.idx], G.camp.idx); G.camp.dirty = true; } },
+  onTexts: () => { if (G.sk) ui.buildSkills(G.sk); if (G.screen === 'stages') ui.buildStages(SAVE); if (G.screen === 'upgrades') ui.buildUpgrades(SAVE); if (G.camp) { ui.setDeploy(STAGES[G.camp.idx], G.camp.idx); G.camp.dirty = true; } },
   onCampaign: () => { audio.unlock(); toStages(); },
   onStagePick: (i) => startDeploy(i),
   mods: () => buildMods(SAVE.up),
@@ -72,7 +74,12 @@ const ui = createUI({
   onPaintMove: (a, b) => { const d = G.camp.dep; d.paintLine(a[0], a[1], b[0], b[1]); G.camp.hover = b; G.camp.dirty = true; },
   onPaintEnd: () => { G.camp.dep.end(); G.camp.dirty = true; },
   onPaintCancel: () => { G.camp.dep.cancel(); G.camp.dirty = true; },
-  onHover: (w) => { if (G.camp) { G.camp.hover = w; } },
+  onHover: (w) => { G.cursor = w; if (G.camp) { G.camp.hover = w; } },
+  isCampaign: () => !!G.camp && G.screen === 'battle',
+  isAiming: () => !!G.sk && G.sk.aim >= 0 && G.screen === 'battle',
+  onSkill: (i, fromKey) => useSkill(i, fromKey),
+  onAimTap: (w) => { if (G.sk && G.sk.aim >= 0) castSkill(G.sk.aim, w); },
+  onCancelAim: () => { if (G.sk && G.sk.aim >= 0) { G.sk.aim = -1; ui.updateSkills(G.sk, G.sim ? G.sim.time : 0); } },
   onPause: () => setPaused(!G.paused),
   onSpeed: (s) => { G.speed = s; ui.setSpeed(s); },
   onFit: () => { fitView(); G.userCam = false; },
@@ -91,7 +98,7 @@ const ui = createUI({
 });
 
 function toMenu() {
-  G.screen = 'menu'; G.camp = null; R.overlay = null; ui.setCampaignHud(false); ui.showScreen('menu'); ui.buildPresets(); startAmbient();
+  G.screen = 'menu'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('menu'); ui.buildPresets(); startAmbient();
 }
 // Fit the arena between the deploy top bar and bottom panel (plain fit elsewhere).
 function fitView() {
@@ -102,18 +109,18 @@ function fitView() {
   R.cam.zoom = z; R.cam.minZoom = Math.min(z * 0.8, 0.5); R.cam.y = 450 + (bot - top) / 2 / z; R.cam.x = 800;
 }
 function toStages() {
-  G.screen = 'stages'; G.camp = null; R.overlay = null; ui.setCampaignHud(false); ui.showScreen('stages'); ui.buildStages(SAVE);
+  G.screen = 'stages'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('stages'); ui.buildStages(SAVE);
   if (!G.ambient) startAmbient();
 }
 function toUpgrades() {
-  G.screen = 'upgrades'; G.camp = null; R.overlay = null; ui.setCampaignHud(false); ui.showScreen('upgrades'); ui.buildUpgrades(SAVE);
+  G.screen = 'upgrades'; G.camp = null; endSkills(); R.overlay = null; ui.setCampaignHud(false); ui.showScreen('upgrades'); ui.buildUpgrades(SAVE);
   if (!G.ambient) startAmbient();
 }
 function startDeploy(idx, cells) {
   const st = effStage(STAGES[idx], buildMods(SAVE.up)), dep = new Deploy(st, cells); // st = stage with upgrade-adjusted budget / population cap
   const sim = G.camp && G.camp.prevSim ? G.camp.prevSim : new Sim({ cap: 3200, seed: st.seed, events: false });
   G.camp = { idx, st, dep, prevSim: sim, dirty: true, hover: null, lastVer: -1 };
-  clearTimeout(G.ambientTimer); G.screen = 'deploy'; G.ambient = false; G.paused = false; G.speed = 1; G.bannerShown = false;
+  endSkills(); clearTimeout(G.ambientTimer); G.screen = 'deploy'; G.ambient = false; G.paused = false; G.speed = 1; G.bannerShown = false;
   ui.setCampaignHud(true); ui.setPaused(false); ui.setSpeed(1); ui.showScreen('deploy'); ui.setDeploy(st, idx);
   G.sim = sim; G.seed = st.seed; G.acc = 0; R.clearFx();
   R.overlay = (c) => drawOverlay(c, G.camp.dep, G.camp.hover, R.cam.zoom);
@@ -128,8 +135,34 @@ function startFight() {
   G.sim = sim; G.seed = st.seed; G.screen = 'battle'; G.ambient = false; G.acc = 0; G.history = []; G.nextLog = 5; G.bannerShown = false; G.simMs = 0; G.simTicks = 0;
   R.clearFx(); R.overlay = null; cp.hover = null;
   ui.setCampaignHud(true); ui.showScreen('battle'); ui.setFps(G.fpsOn); setPaused(false); G.speed = 1; ui.setSpeed(1);
+  G.sk = newSkillState(buildMods(SAVE.up).skills); ui.buildSkills(G.sk);
   ui.updateHud(sim, st.seed);
   console.log(`[campaign] fight stage=${st.id} blue=${sim.count(0)} red=${sim.count(1)} cost=${cp.dep.cost}/${st.budget} seed=${st.seed}`);
+}
+function endSkills() { G.sk = null; ui.buildSkills(null); ui.el.view.style.cursor = ''; }
+// Commander skills: Rally (aim at the cursor/tap), Volley, Charge. Cooldowns run on sim time; a cast that affects nobody costs nothing.
+function useSkill(i, fromKey) {
+  const sk = G.sk, sim = G.sim;
+  if (!sk || !G.camp || G.screen !== 'battle' || !sim || sim.over) return;
+  if (!sk.unlocked[i]) { ui.toast(t('skill.locked', { n: [0, 1, 2][i] }), 2000); return; }
+  if (sk.uses[i] <= 0 || cooldownLeft(sk, i, sim.time) > 0 || G.paused) return;
+  if (SKILLS[i].aim) {
+    if (sk.aim === i) { sk.aim = -1; ui.updateSkills(sk, sim.time); return; }
+    if (fromKey && G.cursor) { castSkill(i, G.cursor); return; }
+    sk.aim = i; ui.toast(t('skill.aim'), 3000); ui.updateSkills(sk, sim.time); return;
+  }
+  castSkill(i, null);
+}
+function castSkill(i, w) {
+  const sk = G.sk, sim = G.sim, def = SKILLS[i];
+  if (!sk || !sim || sim.over || !canUse(sk, i, sim.time)) return;
+  const n = i === 0 ? sim.castRally(0, w[0], w[1]) : i === 1 ? sim.castVolley(0) : sim.castCharge(0);
+  sk.aim = -1;
+  if (n === 0) { ui.toast(t('skill.none'), 1500); ui.updateSkills(sk, sim.time); return; }
+  sk.uses[i]--; sk.next[i] = sim.time + def.cd;
+  R.skillFx(i, sim.fxPts, sim.fxN, w ? w[0] : 0, w ? w[1] : 0, SK.rallyRadius);
+  ui.toast(t('skill.cast', { name: t('skill.' + def.id) }) + ` (${n})`, 1200); ui.updateSkills(sk, sim.time);
+  console.log(`[skill] ${def.id} t=${sim.time.toFixed(1)}s units=${n} uses=${sk.uses[i]} cd=${def.cd}s`);
 }
 function finishCampaign(sim) {
   const cp = G.camp, st = STAGES[cp.idx], win = sim.winner === 0;
@@ -229,7 +262,7 @@ function frame(ts) {
   }
   // HUD + overlay
   hudT += dtMs; fpsAcc += dtMs; fpsFrames++;
-  if (!G.ambient && !deploying && hudT > 180) { hudT = 0; ui.updateHud(sim, G.seed); }
+  if (!G.ambient && !deploying && hudT > 180) { hudT = 0; ui.updateHud(sim, G.seed); if (G.sk) ui.updateSkills(G.sk, sim.time); }
   if (fpsAcc >= 500) {
     const fps = fpsFrames * 1000 / fpsAcc;
     if (G.fpsOn) ui.el.fps.textContent = `FPS ${fps.toFixed(0)}  frame ${(fpsAcc / fpsFrames).toFixed(1)}ms\nunits ${sim.count(0) + sim.count(1)}/${sim.n}  proj ${sim.pn - sim.pFreeN}\nsim ${(G.simMs / Math.max(1, G.simTicks)).toFixed(2)}ms/tick  draw ${R.stats.ms.toFixed(1)}ms\nparticles ${R.stats.particles}  seed ${G.seed}`;
@@ -259,7 +292,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111103').then(async (m) => {
+  import('./selftest.js?v=2026111104').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;

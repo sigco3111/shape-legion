@@ -1,9 +1,10 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111103';
-import { PRESETS } from './formation.js?v=2026111103';
-import { NT, UNITS } from './units.js?v=2026111103';
-import { STAGES, enemyCounts } from './stages.js?v=2026111103';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111103';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111104';
+import { PRESETS } from './formation.js?v=2026111104';
+import { NT, UNITS } from './units.js?v=2026111104';
+import { STAGES, enemyCounts } from './stages.js?v=2026111104';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111104';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111104';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
@@ -64,7 +65,7 @@ export function createUI(h) {
       const es = effStage(st, md), locked = i + 1 > save.unlocked, b = document.createElement('button');
       b.type = 'button'; b.className = 'stage' + (locked ? ' locked' : ''); b.disabled = locked;
       const n = save.stars[i];
-      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap })}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
+      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap, r: st.rec })}${!locked && es.budget < st.rec * 0.85 ? ` · <span class="low">⚠ ${t('stage.low')}</span>` : ''}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
       b.onclick = () => h.onStagePick(i);
       box.appendChild(b);
     });
@@ -103,6 +104,32 @@ export function createUI(h) {
     if (ty === 4 && md.splash > 1) perks.push(t('info.splash', { n: Math.round((md.splash - 1) * 100) }));
     const mob = e.range > 0 ? `${t('info.rng')} <b>${Math.round(e.range)}</b>${pctTxt(e.mul.range)}` : `${t('info.spd')} <b>${Math.round(e.speed)}</b>${pctTxt(e.mul.speed)}`;
     $('dInfo').innerHTML = `<i class="sh t${ty} b"></i><b>${t('unit.' + ty)}</b> ${t('info.hp')} <b>${Math.round(e.hp)}</b>${pctTxt(e.mul.hp)} · ${t('info.dmg')} <b>${e.dmg.toFixed(1)}</b>${pctTxt(e.mul.dmg)} · ${mob}${perks.length ? ' · <em>' + perks.join(' · ') + '</em>' : ''}`;
+  };
+  // ---- commander skills (battle HUD) ----
+  const skBtns = [];
+  SKILLS.forEach((sk, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sk'; b.dataset.skill = i;
+    b.innerHTML = `<kbd>${sk.key}</kbd><b></b><small></small><i class="cdf"></i><span class="cdt"></span>`;
+    b.onclick = () => h.onSkill(i, false);
+    $('skills').appendChild(b); skBtns.push(b);
+  });
+  ui.buildSkills = (st) => { // st = skill state or null (hidden)
+    $('skills').classList.toggle('hidden', !st);
+    skBtns.forEach((b, i) => { b.children[1].textContent = t('skill.' + SKILLS[i].id); b.title = t('skill.' + SKILLS[i].id + '.d') + (st && !st.unlocked[i] ? ' — ' + t('skill.locked', { n: [0, 1, 2][i] }) : ''); });
+    if (st) ui.updateSkills(st, 0);
+  };
+  ui.updateSkills = (st, time) => {
+    if (!st) return;
+    skBtns.forEach((b, i) => {
+      const sk = SKILLS[i], cd = cooldownLeft(st, i, time), usable = st.unlocked[i] && st.uses[i] > 0;
+      b.children[1].textContent = t('skill.' + sk.id);
+      b.children[2].textContent = !st.unlocked[i] ? '🔒' : `×${st.uses[i]}`;
+      b.children[3].style.height = usable && cd > 0 ? Math.min(100, 100 * cd / sk.cd) + '%' : usable ? '0' : '100%';
+      b.children[4].textContent = usable && cd > 0 ? cd.toFixed(cd < 10 ? 1 : 0) : '';
+      b.classList.toggle('cd', usable && cd > 0); b.classList.toggle('off', !usable);
+      b.classList.toggle('ready', usable && cd <= 0); b.classList.toggle('aim', st.aim === i);
+    });
+    el.view.style.cursor = st.aim >= 0 ? 'crosshair' : '';
   };
   // ---- upgrade screen ----
   let upTab = 'army';
@@ -237,12 +264,14 @@ export function createUI(h) {
   // ---- keyboard ----
   addEventListener('keydown', (e) => {
     if (e.target.matches('input,select,textarea')) return;
-    if (e.key === 'Escape') { closeSettings(); el.credits.classList.add('hidden'); return; }
+    if (e.key === 'Escape') { closeSettings(); el.credits.classList.add('hidden'); h.onCancelAim(); return; }
     if (el.hud.classList.contains('hidden')) return;
     const k = e.key.toLowerCase();
     if (k === ' ') { e.preventDefault(); h.onPause(); }
     else if (k === 'f') h.onFit();
     else if (k === 'r') h.onReplay();
+    else if (h.isCampaign() && (k === '1' || k === '2' || k === '3')) h.onSkill(+k - 1, true);
+    else if (h.isCampaign() && (k === '4' || k === '5' || k === '6')) h.onSpeed([1, 2, 4][+k - 4]);
     else if (k === '1' || k === '2' || k === '3') h.onSpeed([1, 2, 4][+k - 1]);
     else if (k === '+' || k === '=') h.onZoom(1.2); else if (k === '-') h.onZoom(1 / 1.2);
     else if (k === 'arrowleft') h.onPan(80, 0); else if (k === 'arrowright') h.onPan(-80, 0);
@@ -265,12 +294,12 @@ export function createUI(h) {
     let kind = 'cam';
     if (h.isDeploy() && !spaceDown && ptrs.size === 0 && (!mouse || e.button === 0)) kind = 'paint';
     for (const q of ptrs.values()) if (q.kind === 'paint') { q.kind = 'cam'; if (performance.now() - q.t0 < 250) h.onPaintCancel(); else h.onPaintEnd(); }
-    const p = local(e); ptrs.set(e.pointerId, { p, kind, t0: performance.now() }); lastDist = 0; lastMid = null; h.onUserCamera();
+    const p = local(e); ptrs.set(e.pointerId, { p, p0: p, kind, t0: performance.now(), aim: kind === 'cam' && ptrs.size === 0 && h.isAiming() }); lastDist = 0; lastMid = null; h.onUserCamera();
     if (kind === 'paint') { const w = W(p); h.onPaintStart(w[0], w[1]); }
   });
   view.addEventListener('pointermove', (e) => {
     const q = ptrs.get(e.pointerId);
-    if (!q) { if (e.pointerType === 'mouse' && h.isDeploy()) h.onHover(W(local(e))); return; }
+    if (!q) { if (e.pointerType === 'mouse') h.onHover(W(local(e))); return; }
     const prev = q.p, cur = local(e); q.p = cur;
     if (q.kind === 'paint') { h.onPaintMove(W(prev), W(cur)); return; }
     const cams = [...ptrs.values()].filter((v) => v.kind === 'cam');
@@ -281,7 +310,7 @@ export function createUI(h) {
       lastDist = d; lastMid = mid;
     }
   });
-  const up = (e) => { const q = ptrs.get(e.pointerId); if (!q) return; ptrs.delete(e.pointerId); if (q.kind === 'paint') h.onPaintEnd(); lastDist = 0; lastMid = null; };
+  const up = (e) => { const q = ptrs.get(e.pointerId); if (!q) return; ptrs.delete(e.pointerId); if (q.kind === 'paint') h.onPaintEnd(); if (q.aim && ptrs.size === 0 && e.type === 'pointerup' && performance.now() - q.t0 < 900 && Math.hypot(q.p[0] - q.p0[0], q.p[1] - q.p0[1]) < 12) h.onAimTap(W(q.p)); lastDist = 0; lastMid = null; };
   view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up); view.addEventListener('lostpointercapture', up);
   view.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !ptrs.size) h.onHover(null); });
   view.addEventListener('wheel', (e) => { e.preventDefault(); const [x, y] = local(e); h.onUserCamera(); h.onZoomAt(Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)), x, y); }, { passive: false });

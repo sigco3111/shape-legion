@@ -1,6 +1,6 @@
 // Headless simulation core: structure-of-arrays, spatial hashing, fixed timestep.
-import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE } from './units.js?v=2026111103';
-import { RNG } from './rng.js?v=2026111103';
+import { UNITS, NT, T, ATK, MULT, PREF, CHARGE, DT, ARENA, SIEGE_MELEE_DMG, HP_SCALE, SK } from './units.js?v=2026111104';
+import { RNG } from './rng.js?v=2026111104';
 
 const F = (k) => Float32Array.from(UNITS.map((u) => u[k]));
 const HP = F('hp').map((v) => v * HP_SCALE), DMG = F('dmg'), CD = F('cd'), RANGE = F('range'), MINR = F('minRange');
@@ -50,6 +50,8 @@ export class Sim {
     this.vx = new Float32Array(cap); this.vy = new Float32Array(cap);
     this.hp = new Float32Array(cap); this.cd = new Float32Array(cap); this.chg = new Float32Array(cap);
     this.ang = new Float32Array(cap);
+    this.rt = new Float32Array(cap); this.ct = new Float32Array(cap); this.rally = [0, 0]; // commander skills: rally / charge timers per unit, rally point
+    this.fxPts = new Float32Array(160); this.fxN = 0; // sampled unit positions of the last skill cast (for effects)
     this.type = new Uint8Array(cap); this.team = new Uint8Array(cap); this.alive = new Uint8Array(cap);
     this.flash = new Uint8Array(cap); this.phase = new Uint8Array(cap); this.tgt = new Int32Array(cap).fill(-1);
     this.ord = new Int32Array(cap); this.nOrd = 0;
@@ -67,7 +69,7 @@ export class Sim {
     this.pVX = new Float32Array(PCAP); this.pVY = new Float32Array(PCAP);
     this.pTX = new Float32Array(PCAP); this.pTY = new Float32Array(PCAP);
     this.pT = new Float32Array(PCAP); this.pDur = new Float32Array(PCAP); this.pX0 = new Float32Array(PCAP); this.pY0 = new Float32Array(PCAP);
-    this.pTgt = new Int32Array(PCAP);
+    this.pTgt = new Int32Array(PCAP); this.pMul = new Float32Array(PCAP);
     this.pFree = new Int32Array(PCAP); this.pFreeN = 0; this.pHigh = 0;
     // render events
     this.evN = 0; this.evKind = new Uint8Array(EVCAP); this.evX = new Float32Array(EVCAP); this.evY = new Float32Array(EVCAP);
@@ -83,7 +85,7 @@ export class Sim {
     this.vx[i] = this.vy[i] = 0;
     this.type[i] = type; this.team[i] = team; this.alive[i] = 1;
     this.hp[i] = HP[type] * (this.mods[team] ? this.mods[team].hp[type] : 1); this.cd[i] = this.rng.next() * CD[type]; this.chg[i] = 0;
-    this.tgt[i] = -1; this.flash[i] = 0; this.phase[i] = this.rng.int(RETARGET); this.ang[i] = team === 0 ? 0 : Math.PI;
+    this.tgt[i] = -1; this.rt[i] = this.ct[i] = 0; this.flash[i] = 0; this.phase[i] = this.rng.int(RETARGET); this.ang[i] = team === 0 ? 0 : Math.PI;
     this.cnt[team * NT + type]++; this.cnt0[team * NT + type]++;
     return i;
   }
@@ -154,10 +156,10 @@ export class Sim {
     return best;
   }
 
-  addProjectile(kind, team, src, x, y, tx, ty, tgt) {
+  addProjectile(kind, team, src, x, y, tx, ty, tgt, mul = 1) {
     if (this.pn >= PCAP && this.pFreeN === 0) return;
     const p = this.pFreeN > 0 ? this.pFree[--this.pFreeN] : this.pn++;
-    this.pAlive[p] = 1; this.pKind[p] = kind; this.pTeam[p] = team; this.pSrc[p] = src;
+    this.pAlive[p] = 1; this.pMul[p] = mul; this.pKind[p] = kind; this.pTeam[p] = team; this.pSrc[p] = src;
     this.pX[p] = this.pPX[p] = this.pX0[p] = x; this.pY[p] = this.pPY[p] = this.pY0[p] = y;
     this.pTX[p] = tx; this.pTY[p] = ty; this.pTgt[p] = tgt; this.pT[p] = 0;
     const dx = tx - x, dy = ty - y, d = Math.sqrt(dx * dx + dy * dy) + 1e-6;
@@ -210,7 +212,7 @@ export class Sim {
         this.pX[p] = this.pX0[p] + (this.pTX[p] - this.pX0[p]) * u;
         this.pY[p] = this.pY0[p] + (this.pTY[p] - this.pY0[p]) * u;
         const pm = this.mods[team];
-        if (u >= 1) { this.splashAt(team, src, this.pTX[p], this.pTY[p], SPLASH[src] * (pm ? pm.splash : 1), DMG[src] * (pm ? pm.dmg[src] : 1)); this.freeP(p); }
+        if (u >= 1) { this.splashAt(team, src, this.pTX[p], this.pTY[p], SPLASH[src] * (pm ? pm.splash : 1), DMG[src] * (pm ? pm.dmg[src] : 1) * this.pMul[p]); this.freeP(p); }
       } else {
         const tg = this.pTgt[p];
         if (tg >= 0 && this.alive[tg]) { this.pTX[p] = this.x[tg]; this.pTY[p] = this.y[tg]; }
@@ -218,7 +220,7 @@ export class Sim {
         const step = ARROW_SPEED * DT;
         if (d <= step + 2) {
           let v = (tg >= 0 && this.alive[tg]) ? tg : this.nearestEnemyAt(team, this.pTX[p], this.pTY[p], 9);
-          if (v >= 0) { this.hurt(v, src, DMG[src] * (this.mods[team] ? this.mods[team].dmg[src] : 1), 1); this.ev(EV.HIT, this.x[v], this.y[v], team, 0); }
+          if (v >= 0) { this.hurt(v, src, DMG[src] * (this.mods[team] ? this.mods[team].dmg[src] : 1) * this.pMul[p], 1); this.ev(EV.HIT, this.x[v], this.y[v], team, 0); }
           this.freeP(p);
         } else {
           this.pVX[p] = dx / d * ARROW_SPEED; this.pVY[p] = dy / d * ARROW_SPEED;
@@ -230,9 +232,43 @@ export class Sim {
   }
   freeP(p) { this.pAlive[p] = 0; this.pFree[this.pFreeN++] = p; }
 
+  // ---- commander skills (player team); each returns the number of affected units and fills fxPts with sample positions ----
+  fxAdd(i) { if (this.fxN < 80) { this.fxPts[this.fxN * 2] = this.x[i]; this.fxPts[this.fxN * 2 + 1] = this.y[i]; this.fxN++; } }
+  castRally(team, cx, cy, rad = SK.rallyRadius, dur = SK.rallyDur) {
+    this.fxN = 0; this.rally[0] = cx; this.rally[1] = cy; let n = 0;
+    for (let i = 0; i < this.n; i++) {
+      if (!this.alive[i] || this.team[i] !== team) continue;
+      const dx = this.x[i] - cx, dy = this.y[i] - cy;
+      if (dx * dx + dy * dy <= rad * rad) { this.rt[i] = dur; n++; if (n % 6 === 1) this.fxAdd(i); }
+    }
+    return n;
+  }
+  castVolley(team, mul = 1 + SK.volleyDmg) {
+    this.fxN = 0; let n = 0;
+    const m = this.mods[team];
+    for (let i = 0; i < this.n; i++) {
+      const t = this.type[i];
+      if (!this.alive[i] || this.team[i] !== team || (t !== T.ARCHER && t !== T.SIEGE)) continue;
+      let tg = this.tgt[i];
+      if (tg < 0 || !this.alive[tg]) tg = this.findTarget(i);
+      if (tg < 0) continue;
+      const dx = this.x[tg] - this.x[i], dy = this.y[tg] - this.y[i], d = Math.sqrt(dx * dx + dy * dy), rm = m ? m.rng[t] : 1;
+      if (d > RANGE[t] * rm || d < MINR[t]) continue;
+      if (t === T.ARCHER) { this.addProjectile(ATK.ARROW, team, t, this.x[i], this.y[i], this.x[tg], this.y[tg], tg, mul); this.ev(EV.SHOT, this.x[i], this.y[i], team, 0); }
+      else { const fl = Math.max(0.5, d / BOULDER_SPEED); this.addProjectile(ATK.BOULDER, team, t, this.x[i], this.y[i], this.x[tg] + this.vx[tg] * fl, this.y[tg] + this.vy[tg] * fl, -1, mul); this.ev(EV.SHOT, this.x[i], this.y[i], team, 1); }
+      n++; if (n % 4 === 1) this.fxAdd(i);
+    }
+    return n;
+  }
+  castCharge(team, dur = SK.chargeDur) {
+    this.fxN = 0; let n = 0;
+    for (let i = 0; i < this.n; i++) if (this.alive[i] && this.team[i] === team && this.type[i] === T.RIDER) { this.ct[i] = dur; n++; if (n % 3 === 1) this.fxAdd(i); }
+    return n;
+  }
+
   step() {
     if (this.over) return;
-    const { x, y, px, py, vx, vy, hp, cd, chg, ang, type, team, alive, flash, tgt, rng } = this;
+    const { x, y, px, py, vx, vy, hp, cd, chg, ang, type, team, alive, flash, tgt, rng, rt, ct } = this;
     const nAll = this.n;
     // alive lists + centroids
     let no = 0; this.tn[0] = this.tn[1] = 0;
@@ -261,7 +297,10 @@ export class Sim {
       const i = ordA[o];
       if (!alive[i]) continue;
       const t = type[i], tm = team[i], m = this.mods[tm];
-      const dmgM = m ? m.dmg[t] : 1, spdM = m ? m.spd[t] : 1, rngM = m ? m.rng[t] : 1;
+      let dmgM = m ? m.dmg[t] : 1, spdM = m ? m.spd[t] : 1;
+      const rngM = m ? m.rng[t] : 1;
+      if (rt[i] > 0) { rt[i] -= DT; spdM += SK.rallySpd; }
+      if (ct[i] > 0) { ct[i] -= DT; spdM += SK.chargeSpd; dmgM *= 1 + SK.chargeDmg; }
       if (cd[i] > 0) cd[i] -= DT;
       if (chg[i] > 0) chg[i] -= DT;
       if (flash[i] > 0) flash[i]--;
@@ -293,6 +332,10 @@ export class Sim {
             this.ev(EV.SHOT, x[i], y[i], tm, 1);
           }
         }
+      }
+      if (rt[i] > 0) { // rally: walk to the rally point until close
+        const rx = this.rally[0] - x[i], ry = this.rally[1] - y[i], rd = Math.sqrt(rx * rx + ry * ry);
+        if (rd > 22) { dvx = rx / rd * SPEED[t] * spdM; dvy = ry / rd * SPEED[t] * spdM; } else { dvx = dvy = 0; }
       }
       vx[i] += (dvx - vx[i]) * ACCEL; vy[i] += (dvy - vy[i]) * ACCEL;
       let nx = x[i] + vx[i] * DT, ny = y[i] + vy[i] * DT;

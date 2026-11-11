@@ -1,5 +1,5 @@
 // Unit definitions and balance tables. Everything tunable lives here.
-export const VER = '2026111103';
+export const VER = '2026111104';
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 export const ARENA = { w: 1600, h: 900 };
@@ -44,3 +44,6 @@ export const TEAMS = [
 ];
 
 export function unitValue(t) { return UNITS[t].cost; }
+
+// Commander skill constants (player team only): rally speed/duration/radius, volley damage bonus, charge speed/damage/duration.
+export const SK = { rallyRadius: 240, rallyDur: 4, rallySpd: 0.2, volleyDmg: 0.5, chargeDur: 5, chargeSpd: 0.6, chargeDmg: 0.4 };

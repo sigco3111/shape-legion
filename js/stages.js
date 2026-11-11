@@ -1,20 +1,31 @@
 // Campaign data: stages, enemy formations, star/reward rules, save progress (localStorage).
-import { UNITS, ARENA } from './units.js?v=2026111103';
-import { defaultUp, normUp } from './upgrades.js?v=2026111103';
+import { UNITS, ARENA } from './units.js?v=2026111104';
+import { defaultUp, normUp } from './upgrades.js?v=2026111104';
 
 // Deployment grid (player half). Cells are snapped; enemy cells mirror it (d = columns from the centre line).
 export const GRID = { cell: 14, cols: 56, rows: 63, x0: 8, y0: 9 };
 export const gridX = (c) => GRID.x0 + (c + 0.5) * GRID.cell;
 export const gridY = (r) => GRID.y0 + (r + 0.5) * GRID.cell;
 
+// rec = recommended effective gold budget (budget incl. upgrades) the stage was tuned for; see js/stagetest.js.
 // Enemy formation = rects {t:type, d0,d1: columns from the centre line, r0,r1: rows (inclusive), sx,sy: optional step}.
 export const STAGES = [
-  { id: 1, seed: 1101, budget: 150, cap: 140, reward: 100,
+  { id: 1, seed: 1101, budget: 150, cap: 140, reward: 100, rec: 120,
     enemy: [{ t: 0, d0: 8, d1: 17, r0: 26, r1: 37 }] }, // 120 circles in a block
-  { id: 2, seed: 2202, budget: 260, cap: 220, reward: 160,
+  { id: 2, seed: 2202, budget: 260, cap: 220, reward: 160, rec: 200,
     enemy: [{ t: 1, d0: 6, d1: 6, r0: 20, r1: 43 }, { t: 0, d0: 8, d1: 13, r0: 22, r1: 41 }] }, // squares line + circles
-  { id: 3, seed: 3303, budget: 340, cap: 240, reward: 240,
+  { id: 3, seed: 3303, budget: 340, cap: 240, reward: 240, rec: 300,
     enemy: [{ t: 1, d0: 6, d1: 7, r0: 24, r1: 37 }, { t: 2, d0: 9, d1: 11, r0: 26, r1: 35 }, { t: 3, d0: 14, d1: 15, r0: 8, r1: 11 }, { t: 3, d0: 14, d1: 15, r0: 52, r1: 55 }] }, // archers behind squares + riders
+  { id: 4, seed: 4404, budget: 480, cap: 300, reward: 330, rec: 550,
+    enemy: [{ t: 0, d0: 7, d1: 15, r0: 6, r1: 57 }, { t: 3, d0: 4, d1: 6, r0: 0, r1: 6 }, { t: 3, d0: 4, d1: 6, r0: 56, r1: 62 }] }, // wide circle line + rider flanks
+  { id: 5, seed: 5505, budget: 600, cap: 340, reward: 400, rec: 690,
+    enemy: [{ t: 1, d0: 6, d1: 7, r0: 12, r1: 51 }, { t: 2, d0: 9, d1: 11, r0: 16, r1: 47 }, { t: 4, d0: 14, d1: 15, r0: 22, r1: 41, sy: 4 }] }, // square wall, archers behind, siege
+  { id: 6, seed: 6606, budget: 700, cap: 380, reward: 480, rec: 800,
+    enemy: [{ t: 0, d0: 7, d1: 11, r0: 12, r1: 51 }, { t: 1, d0: 5, d1: 6, r0: 16, r1: 47 }, { t: 2, d0: 12, d1: 13, r0: 18, r1: 45 }, { t: 3, d0: 8, d1: 10, r0: 0, r1: 11 }, { t: 3, d0: 8, d1: 10, r0: 51, r1: 62 }, { t: 4, d0: 15, d1: 15, r0: 22, r1: 41, sy: 4 }] }, // mixed army, many riders
+  { id: 7, seed: 7707, budget: 800, cap: 420, reward: 560, rec: 910,
+    enemy: [{ t: 1, d0: 5, d1: 7, r0: 8, r1: 55 }, { t: 4, d0: 11, d1: 15, r0: 10, r1: 53, sx: 2, sy: 4 }, { t: 0, d0: 9, d1: 10, r0: 20, r1: 43 }] }, // siege battery behind squares
+  { id: 8, seed: 8808, budget: 1000, cap: 520, reward: 750, rec: 1130,
+    enemy: [{ t: 1, d0: 4, d1: 5, r0: 8, r1: 55 }, { t: 0, d0: 6, d1: 10, r0: 8, r1: 55 }, { t: 2, d0: 11, d1: 13, r0: 14, r1: 49 }, { t: 3, d0: 3, d1: 4, r0: 0, r1: 6 }, { t: 3, d0: 3, d1: 4, r0: 56, r1: 62 }, { t: 4, d0: 14, d1: 15, r0: 10, r1: 52, sy: 4 }] }, // boss army
 ];
 
 export function enemyCells(stage) {
@@ -50,6 +61,8 @@ export function loadSave() {
     if (o && typeof o === 'object') {
       STAGES.forEach((_, i) => { s.stars[i] = Math.max(0, Math.min(3, (o.stars && o.stars[i]) | 0)); });
       s.gold = Math.max(0, o.gold | 0); s.unlocked = Math.max(1, Math.min(STAGES.length, o.unlocked | 0)); s.up = normUp(o.up);
+      // saves from before stages 4-8 existed: a cleared last stage unlocks the one after it
+      s.stars.forEach((n, i) => { if (n > 0 && i + 2 > s.unlocked) s.unlocked = Math.min(STAGES.length, i + 2); });
     }
   } catch (e) { /* private mode / bad json */ }
   return s;

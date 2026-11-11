@@ -1,6 +1,6 @@
 // Canvas 2D renderer: sprite atlas, static background, batched drawImage, additive glow/bloom, pooled FX.
-import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111103';
-import { EV } from './sim.js?v=2026111103';
+import { UNITS, NT, TEAMS, ARENA, ATK } from './units.js?v=2026111104';
+import { EV } from './sim.js?v=2026111104';
 
 const TAU = Math.PI * 2, DIRS = 16, CELLW = 28; // atlas cell size in world units
 const MAXP = 7000, MAXR = 300;
@@ -155,9 +155,22 @@ export class Renderer {
     const k = this.pn++;
     this.pX[k] = x; this.pY[k] = y; this.pVX[k] = vx; this.pVY[k] = vy; this.pL[k] = this.pM[k] = life; this.pS[k] = size; this.pC[k] = team;
   }
-  spawnRing(x, y, rad, team) {
+  spawnRing(x, y, rad, team, life = 0.45) {
     if (this.rn >= MAXR) return;
-    const k = this.rn++; this.rX[k] = x; this.rY[k] = y; this.rA[k] = 0; this.rM[k] = 0.45; this.rR[k] = rad; this.rC[k] = team;
+    const k = this.rn++; this.rX[k] = x; this.rY[k] = y; this.rA[k] = 0; this.rM[k] = life; this.rR[k] = rad; this.rC[k] = team;
+  }
+  // Commander skill effect (rings + flash sparks). kind: 0 rally (ring around the point), 1 volley / 2 charge (rings + sparks at sampled units).
+  skillFx(kind, pts, n, cx, cy, rad) {
+    if (kind === 0) {
+      for (let i = 0; i < 3; i++) this.spawnRing(cx, cy, rad * (0.85 - i * 0.25), 0, 0.5 + i * 0.2);
+      for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; this.spawnP(cx + Math.cos(a) * rad * 0.8, cy + Math.sin(a) * rad * 0.8, -Math.cos(a) * 140, -Math.sin(a) * 140, 0.6, 3, 0); }
+    }
+    for (let k = 0; k < n; k++) {
+      const x = pts[k * 2], y = pts[k * 2 + 1];
+      this.spawnRing(x, y, kind === 1 ? 20 : 16, 0, 0.5);
+      for (let i = 0; i < 4; i++) { const a = kind === 1 ? -Math.PI / 2 + (Math.random() - 0.5) : Math.random() * TAU; this.spawnP(x, y, Math.cos(a) * 90, Math.sin(a) * 90, 0.5, 3.4, 0); }
+    }
+    if (this.shakeOn) this.shake = Math.min(5, this.shake + 2);
   }
 
   consume(sim) {
