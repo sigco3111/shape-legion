@@ -1,15 +1,18 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111106';
-import { PRESETS } from './formation.js?v=2026111106';
-import { NT, UNITS } from './units.js?v=2026111106';
-import { STAGES, enemyCounts } from './stages.js?v=2026111106';
-import { SKILLS, cooldownLeft } from './skills.js?v=2026111106';
-import * as audio from './audio.js?v=2026111106';
-import { terrainFor, TERR_ICON } from './terrain.js?v=2026111106';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111106';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111107';
+import { PRESETS } from './formation.js?v=2026111107';
+import { NT, UNITS } from './units.js?v=2026111107';
+import { STAGES, enemyCounts } from './stages.js?v=2026111107';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111107';
+import * as audio from './audio.js?v=2026111107';
+import { terrainFor, TERR_ICON } from './terrain.js?v=2026111107';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111107';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
+const FONT_CREDIT = { pack: 'Kenney Pixel Square (Kenney Fonts)', author: 'Kenney', license: 'CC0 1.0', url: 'https://kenney.nl/assets/kenney-fonts', files: 'assets/kenney-pixel-square.woff2 (ASCII subset, woff2)' };
+const CRT_KEY = 'shapelegion.crt.v1'; // 0 off / 1 light / 2 normal (default 1); own key, separate from settings + progress
+const BOOT = ['BOOT SEQUENCE...', 'ARMY REGISTRY ... OK', `${NT} UNIT TYPES LOADED`];
 
 export function createUI(h) {
   const el = {};
@@ -55,6 +58,7 @@ export function createUI(h) {
     if (name !== 'result') el.result.classList.add('hidden');
     el.view.style.cursor = name === 'deploy' ? 'crosshair' : '';
     if (name !== 'battle') ui.hideBanner();
+    if (name === 'menu') ui.startBoot(); else ui.finishBoot();
   };
   ui.setCampaignHud = (on) => { el.hud.classList.toggle('campaign', on); $('help').dataset.i18n = on ? 'hud.help.camp' : 'hud.help'; $('help').textContent = t(on ? 'hud.help.camp' : 'hud.help'); };
 
@@ -68,7 +72,7 @@ export function createUI(h) {
       b.type = 'button'; b.className = 'stage' + (locked ? ' locked' : ''); b.disabled = locked;
       const n = save.stars[i];
       const tr = terrainFor(st), tl = tr ? `<span class="terr" title="${t('terr.label')}">${tr.tags.map((k) => TERR_ICON[k] + ' ' + t('terr.' + k)).join(' · ')}</span> · ` : '';
-      b.innerHTML = `<span class="sn">${locked ? '🔒' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : tl + t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap, r: st.rec })}${!locked && es.budget < st.rec * 0.85 ? ` · <span class="low">⚠ ${t('stage.low')}</span>` : ''}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
+      b.innerHTML = `<span class="sn">${locked ? '--' : i + 1}</span><span class="si"><b>${t('stage.' + st.id)}</b><small>${locked ? t('stage.locked') : tl + t('stage.' + st.id + '.desc')} · ${t('stage.info', { b: es.budget, c: es.cap, r: st.rec })}${!locked && es.budget < st.rec * 0.85 ? ` · <span class="low">! ${t('stage.low')}</span>` : ''}</small></span><span class="ss">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>`;
       b.onclick = () => h.onStagePick(i);
       box.appendChild(b);
     });
@@ -126,7 +130,7 @@ export function createUI(h) {
     skBtns.forEach((b, i) => {
       const sk = SKILLS[i], cd = cooldownLeft(st, i, time), usable = st.unlocked[i] && st.uses[i] > 0;
       b.children[1].textContent = t('skill.' + sk.id);
-      b.children[2].textContent = !st.unlocked[i] ? '🔒' : `×${st.uses[i]}`;
+      b.children[2].textContent = !st.unlocked[i] ? 'LOCK' : `×${st.uses[i]}`;
       b.children[3].style.height = usable && cd > 0 ? Math.min(100, 100 * cd / sk.cd) + '%' : usable ? '0' : '100%';
       b.children[4].textContent = usable && cd > 0 ? cd.toFixed(cd < 10 ? 1 : 0) : '';
       b.classList.toggle('cd', usable && cd > 0); b.classList.toggle('off', !usable);
@@ -221,9 +225,10 @@ export function createUI(h) {
     chipRefs.forEach((arr, tm) => arr.forEach((c, ty) => { c.title = `${t('team.' + tm)} ${t('unit.' + ty)}`; }));
     el.btnPause.title = t(h.isPaused() ? 'hud.play' : 'hud.pause');
     el.setLang.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.lang === getLang()));
+    $('menuLang').innerHTML = getLang() === 'ko' ? 'LANG: <b>[KO]</b> EN' : 'LANG: KO <b>[EN]</b>';
   };
   ui.refresh = refreshTexts;
-  ui.setPaused = (p) => { el.btnPause.textContent = p ? '▶' : '⏸'; el.btnPause.title = t(p ? 'hud.play' : 'hud.pause'); };
+  ui.setPaused = (p) => { el.btnPause.textContent = p ? '▶\uFE0E' : 'II'; el.btnPause.title = t(p ? 'hud.play' : 'hud.pause'); };
   ui.setSpeed = (s) => el.speedBtns.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.speed === s));
   ui.setFps = (on) => el.fps.classList.toggle('hidden', !on);
 
@@ -251,6 +256,7 @@ export function createUI(h) {
     el.setCap.value = String(s.cap); el.setShake.checked = s.shake;
     const au = audio.settings(); el.setVol.value = au.master; el.setSfx.value = au.sfx; el.setMus.value = au.music; el.setMute.checked = au.mute;
     el.setFx.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.fx === s.fx));
+    ui.setCrt(ui.getCrt(), false);
     el.settings.classList.remove('hidden'); resetBox(false);
   };
   const closeSettings = () => el.settings.classList.add('hidden');
@@ -263,11 +269,55 @@ export function createUI(h) {
   el.setVol.oninput = () => audio.set('master', +el.setVol.value); el.setSfx.oninput = () => audio.set('sfx', +el.setSfx.value); el.setMus.oninput = () => audio.set('music', +el.setMus.value);
   el.setMute.onchange = () => audio.set('mute', el.setMute.checked);
   ui.buildCredits = () => {
-    $('creditsList').innerHTML = audio.CREDITS.map((c) => `<li><b>${c.pack}</b> — ${t('credits.by')}: ${c.author} · ${t('credits.lic')}: ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}<br><small><a href="${c.url}" target="_blank" rel="noopener">${c.url}</a> · ${t('credits.files')}: ${c.files}${c.attribution ? `<br>${c.attribution}` : ''}</small></li>`).join('');
+    $('creditsList').innerHTML = [...audio.CREDITS, FONT_CREDIT].map((c) => `<li><b>${c.pack}</b> — ${t('credits.by')}: ${c.author} · ${t('credits.lic')}: ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}<br><small><a href="${c.url}" target="_blank" rel="noopener">${c.url}</a> · ${t('credits.files')}: ${c.files}${c.attribution ? `<br>${c.attribution}` : ''}</small></li>`).join('');
   };
   el.setShake.onchange = () => h.onSetting('shake', el.setShake.checked);
   el.setFx.onclick = (e) => { const b = e.target.closest('button'); if (b) { h.onSetting('fx', +b.dataset.fx); ui.openSettings(); } };
   for (const id of ['settings', 'credits']) el[id].addEventListener('pointerdown', (e) => { if (e.target === el[id]) el[id].classList.add('hidden'); });
+
+  // ---- CRT effect level (html[data-crt]; first applied by the inline script in index.html) ----
+  ui.getCrt = () => { try { const v = localStorage.getItem(CRT_KEY), n = v == null ? 1 : +v; return n === 0 || n === 1 || n === 2 ? n : 1; } catch (e) { return 1; } };
+  ui.setCrt = (n, store = true) => {
+    n = n === 0 || n === 1 || n === 2 ? n : 1;
+    document.documentElement.dataset.crt = String(n);
+    if (store) try { localStorage.setItem(CRT_KEY, String(n)); } catch (e) { /* private mode */ }
+    const box = $('setCrt'); if (box) box.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.crt === n));
+  };
+  ui.setCrt(ui.getCrt(), false);
+  { const box = $('setCrt'); if (box) box.onclick = (e) => { const b = e.target.closest('button'); if (b) ui.setCrt(+b.dataset.crt); }; }
+
+  // ---- start screen: typed boot lines (any key / tap skips; never blocks the menu) + keyboard menu ----
+  let bootDone = false, bootTimer = 0;
+  const bootBox = () => $('boot');
+  ui.finishBoot = () => {
+    clearTimeout(bootTimer); bootTimer = 0;
+    const box = bootBox(); if (!box || bootDone) return;
+    bootDone = true; box.innerHTML = BOOT.map((l) => `<div>${l}</div>`).join('');
+  };
+  ui.startBoot = () => {
+    const box = bootBox(); if (!box || bootDone || bootTimer) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { ui.finishBoot(); return; }
+    box.innerHTML = ''; let li = 0, ci = 0, row = null;
+    const tick = () => {
+      if (li >= BOOT.length) { bootTimer = 0; bootDone = true; if (row) row.classList.remove('cur'); return; }
+      if (ci === 0) { if (row) row.classList.remove('cur'); row = document.createElement('div'); row.className = 'cur'; box.appendChild(row); }
+      ci++; row.textContent = BOOT[li].slice(0, ci);
+      let wait = 24;
+      if (ci >= BOOT[li].length) { li++; ci = 0; wait = 220; }
+      bootTimer = setTimeout(tick, wait);
+    };
+    bootTimer = setTimeout(tick, 120);
+  };
+  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if (bootTimer) ui.finishBoot(); }, { capture: true, passive: true });
+  const mItems = [...document.querySelectorAll('#menuList button')]; let mSel = Math.max(0, mItems.findIndex((b) => b.classList.contains('sel')));
+  const markSel = () => mItems.forEach((b, i) => b.classList.toggle('sel', i === mSel));
+  mItems.forEach((b, i) => { const on = () => { mSel = i; markSel(); }; b.addEventListener('pointerenter', on); b.addEventListener('focus', on); });
+  addEventListener('keydown', (e) => {
+    if (!mItems.length || el.menu.classList.contains('hidden') || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!el.settings.classList.contains('hidden') || !el.credits.classList.contains('hidden') || e.target.matches('input,select,textarea')) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); mSel = (mSel + (e.key === 'ArrowDown' ? 1 : mItems.length - 1)) % mItems.length; markSel(); mItems[mSel].focus(); }
+    else if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button,a')) { e.preventDefault(); mItems[mSel].click(); }
+  });
 
   // ---- keyboard ----
   addEventListener('keydown', (e) => {

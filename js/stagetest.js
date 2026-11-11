@@ -1,11 +1,11 @@
 // Headless campaign check (Node): auto-generated layouts vs each stage at the expected upgrade level; skill sanity test.
 // Usage: node js/stagetest.js [seeds=8] [stage|all] [skills]
-import { Sim } from './sim.js?v=2026111106';
-import { UNITS, NT, T } from './units.js?v=2026111106';
-import { STAGES, GRID, rewardFor, enemyCounts } from './stages.js?v=2026111106';
-import { defaultUp, buildMods, effStage, TECH, POP, statCost, MAXLV } from './upgrades.js?v=2026111106';
-import { Deploy, fillSim } from './deploy.js?v=2026111106';
-import { deployBlocked } from './stages.js?v=2026111106';
+import { Sim } from './sim.js?v=2026111107';
+import { UNITS, NT, T } from './units.js?v=2026111107';
+import { STAGES, GRID, rewardFor, enemyCounts } from './stages.js?v=2026111107';
+import { defaultUp, buildMods, effStage, TECH, POP, statCost, MAXLV } from './upgrades.js?v=2026111107';
+import { Deploy, fillSim } from './deploy.js?v=2026111107';
+import { deployBlocked } from './stages.js?v=2026111107';
 
 // Purchase order of a typical player; stage N is tested with the gold earned in stages 1..N-1 spent in this order.
 const PLAN = ['pop', 'inf0', 'cmd0', 'pop', 'grd0', 'arc0', 'pop', 'st:1:0', 'st:2:1', 'cav0', 'sge0', 'inf1', 'pop', 'cmd1', 'grd1', 'arc1', 'st:0:0', 'st:3:1', 'sge1', 'cav1', 'pop', 'st:1:1', 'st:4:1', 'inf2', 'grd2', 'arc2', 'cmd2', 'pop'];
