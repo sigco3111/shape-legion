@@ -162,3 +162,6 @@ button.sk.ready { border-color: #7dffc4; box-shadow: 0 0 10px rgba(80,255,170,.3
 button.sk.aim { background: #2b62e6; border-color: #ffd35a; box-shadow: 0 0 12px rgba(255,211,90,.7); }
 button.sk.off { opacity: .45; }
 @media (max-width: 720px) { button.sk { width: 76px; min-width: 76px; min-height: 52px; } #skills { left: auto; right: 8px; transform: none; bottom: calc(120px + env(safe-area-inset-bottom)); flex-direction: column; } #hud.campaign #help { display: none; } }
+
+/* ---- terrain (1e) ---- */
+button.stage small .terr { color: #7fd0ff; font-weight: 600; white-space: nowrap; }
