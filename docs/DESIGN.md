@@ -50,11 +50,18 @@
 - 소리: `js/audio.js` WebAudio 엔진 + `assets/audio/*.ogg`(카탈로그 에셋). 설정에서 전체/효과음/음악 음량·음소거(`localStorage shapelegion.audio.v1`).
 
 ## 7. 에셋/라이선스
-- 소리 에셋만 외부(`assets/audio/`, 약 0.7MB, 전부 OGG 변환·자름). 목록과 라이선스는 `CREDITS.md`와 게임 내 크레딧 화면. 추가 시 https://github.com/sigco3111/game-asset-catalog 에서 CC0, CC-BY, MIT, GPL 2.0/3.0만 사용. CC-BY는 `CREDITS.md`와 게임 내 크레딧 화면에 표기.
+- 소리(`assets/audio/`, 약 0.7MB, 전부 OGG 변환·자름)와 글꼴 `assets/kenney-pixel-square.woff2`(Kenney Pixel Square, CC0, ASCII 문자·기호 부분집합 약 1KB; 숫자는 한글처럼 보여서 제외 — 숫자·한글은 모노스페이스 시스템 스택). 목록과 라이선스는 `CREDITS.md`와 게임 내 크레딧 화면. 추가 시 https://github.com/sigco3111/game-asset-catalog 에서 CC0, CC-BY, MIT, GPL 2.0/3.0만 사용. CC-BY는 `CREDITS.md`와 게임 내 크레딧 화면에 표기.
 
 ## 8. 파일 구조(얕게 유지)
 `index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,audio,audiotest,rng,selftest,stagetest,stages,deploy,upgrades,skills,terrain,terraintest}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
-캐시 무효화: `index.html`과 모든 `js/*.js` import의 `?v=<번호>`를 **한꺼번에 같은 값으로** 올린다(예: `2026111101`; 모듈마다 값이 다르면 같은 파일이 두 번 로드됨).
+캐시 무효화: `index.html`과 모든 `js/*.js` import의 `?v=<번호>`를 **한꺼번에 같은 값으로** 올린다(예: `2026111107`; 모듈마다 값이 다르면 같은 파일이 두 번 로드됨).
+
+## 6-1. UI 디자인: 레트로 픽셀 CRT (1g)
+- 컨셉: 1980년대 군사 워게임 터미널. 팔레트 `--bg #0c0a06` · `--amber #ffb000`(본문) · `--amber2 #b08010`(보조 글자) · `--amber3 #7a5a10`(테두리/비활성) · `--paper #efe6cf`(강조) · `--alert #ff4b3a`(경고·주요 행동에만). 아군/적 파랑·빨강은 전장·도형에서만.
+- 토큰(`css/style.css` `:root`): 색, 간격 `--s1..s6`, 글자 `--f-mono`(한글·숫자) / `--f-px`(Kenney Pixel Square, 라틴 대문자 제목·버튼, 16/24/32/48/64/96px에서 픽셀 격자 유지) / `--t-*`, 테두리 `--bw`·`--bc`(계단식 픽셀 테두리 = 4방향 하드 box-shadow), `--ph`(인광 그림자), 블록 막대 `--cell`·`--cut`.
+- 기본 컴포넌트: 픽셀 버튼 플레이트(높이 44px 이상, hover/focus 색 반전, 눌림), 괄호 라벨 `[ 시작 ]`(`button.big`, `.br`), 장부 행 `.lg`/`.fld`, 블록 막대 `.bar`, 패널 `.menu-card`, 툴팁 `[data-tip]`. 둥근 모서리·블러·그라데이션 글로우 금지.
+- CRT 오버레이: `#crt` 하나(고정, `pointer-events:none`, 캔버스에는 filter/blend 없음). 1단계=스캔라인 10%+비네트+아주 느린 깜빡임, 2단계=더 진한 스캔라인+베젤. `prefers-reduced-motion`이면 깜빡임 없음. 설정 'CRT 효과' 끄기/약하게/보통 → `localStorage shapelegion.crt.v1`(0/1/2, 기본 1), `index.html` head의 인라인 스크립트가 `html[data-crt]`를 먼저 적용하고 `ui.setCrt()`가 변경.
+- 시작 화면: 부팅 터미널(타이핑 3줄, 아무 키/탭이면 건너뜀, 메뉴는 타이핑 중에도 작동), `SHAPE LEGION` 픽셀 제목 + '도형 군단', 세로 메뉴(깜빡이는 블록 커서, ↑/↓/Enter, 터치 44px+), 오른쪽 5종 진형 도식(SVG), `LANG: [KO] EN`.
 
 ## 9. 자체 테스트 (`js/selftest.js`)
 - 브라우저 `?selftest=1`(`&full=1` 확장), Node `node js/selftest.js [full]`.
@@ -100,3 +107,8 @@
   - [x] `node js/audiotest.js`: 모의 AudioContext로 버퍼 없음/음성 상한/간격 제한/파일 존재 확인
   - [ ] UI 개편은 다음 라운드
 - **2**: 사기/패주, 지형 버프, 효과음/음악(카탈로그 에셋), 미니맵, 크레딧 화면 완성.
+- **1g-1** (UI 레트로 픽셀 CRT, 1/3 — 토큰·CRT·시작 화면):
+  - [x] 디자인 토큰 + 기본 컴포넌트(버튼 플레이트, 괄호 라벨, 장부 행, 블록 막대, 패널, 툴팁)로 모든 화면 재스타일(설정·크레딧·업그레이드·결과는 토큰 적용만)
+  - [x] `#crt` 오버레이 + 설정 'CRT 효과'(`shapelegion.crt.v1`) + i18n ko/en
+  - [x] 시작 화면 부팅 터미널·픽셀 제목·세로 메뉴(키보드)·진형 도식·언어 토글, Kenney Pixel Square 서브셋 woff2 + 크레딧
+  - [ ] 1g-2 스테이지 선택·배치 HUD 재디자인 / 1g-3 전투 HUD·결과 재디자인
