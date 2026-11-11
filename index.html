@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <script>try{var c=localStorage.getItem('shapelegion.crt.v1');c=c==null?1:+c;document.documentElement.dataset.crt=(c===0||c===1||c===2)?c:1}catch(e){document.documentElement.dataset.crt=1}</script>
   <link rel="preload" href="assets/kenney-pixel-square.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2026111107">
+  <link rel="stylesheet" href="css/style.css?v=2026111108">
 </head>
 <body>
   <div id="app">
@@ -42,11 +42,19 @@
 
     <!-- stage select -->
     <section id="stages" class="screen hidden">
-      <div class="menu-card">
-        <h1 data-i18n="stage.title"></h1>
-        <p class="tag"><span data-i18n="stage.gold"></span> <b id="goldTxt" class="gold">0</b></p>
-        <div id="stageList" class="stage-list"></div>
-        <div class="row"><button id="upgradesBtn" type="button" class="big" data-i18n="up.btn"></button><button id="stagesBack" type="button" class="big alt" data-i18n="banner.menu"></button></div>
+      <div class="mm">
+        <header class="mm-hd">
+          <h1 data-i18n="stage.title"></h1>
+          <p class="mm-keys" data-i18n="stage.keys"></p>
+          <p class="tag"><span data-i18n="stage.gold"></span> <b id="goldTxt" class="gold">0</b></p>
+        </header>
+        <div class="map-wrap"><div id="stageMap" class="map" role="group" aria-label="mission map" data-i18n-aria="stage.map"></div></div>
+        <aside id="stageBrief" class="brief" aria-live="polite"></aside>
+        <div class="mm-bar">
+          <button id="stageGo" type="button" class="big go" data-i18n="stage.go"></button>
+          <button id="upgradesBtn" type="button" class="big alt" data-i18n="up.btn"></button>
+          <button id="stagesBack" type="button" class="big alt" data-i18n="banner.menu"></button>
+        </div>
       </div>
     </section>
 
@@ -165,6 +173,6 @@
     <div id="toast" class="hidden" role="status"></div>
   </div>
   <div id="crt" aria-hidden="true"></div>
-  <script type="module" src="js/main.js?v=2026111107"></script>
+  <script type="module" src="js/main.js?v=2026111108"></script>
 </body>
 </html>
