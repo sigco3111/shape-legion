@@ -122,3 +122,26 @@ button.fight { background: linear-gradient(180deg,#ff5a6a,#c01f38); border-color
 @media (max-height: 560px) { .hint, .denemy { display: none; } .units button { min-height: 44px; padding: 3px 8px; } }
 #resTitle[data-team="0"] { background: linear-gradient(90deg,#ffe28a,#fff); -webkit-background-clip: text; background-clip: text; }
 #resTitle[data-team="1"] { background: linear-gradient(90deg,#ff8a96,#fff); -webkit-background-clip: text; background-clip: text; }
+
+/* ---- upgrades (1c) ---- */
+.up-card { width: min(640px, 100%); max-height: 100%; display: flex; flex-direction: column; text-align: left; }
+.up-card h1, .up-card .tag { text-align: center; }
+.up-card .seg { align-self: center; margin: 4px 0 8px; }
+#upgrades { align-items: stretch; }
+.up-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 4px; -webkit-overflow-scrolling: touch; }
+.urow { background: rgba(20,30,60,.55); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+.uhead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; } .uhead .dim { font-size: 12px; margin-left: auto; text-align: right; }
+.uhead .sh { width: 16px; height: 16px; }
+.ugrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+button.ub { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; min-height: 64px; box-shadow: 0 0 0 rgba(80,160,255,0); }
+button.ub b { font-size: 14px; } button.ub span { font-size: 12px; color: var(--dim); } button.ub small { color: #ffd35a; font-size: 12.5px; font-weight: 700; margin-top: auto; }
+button.ub.wide { width: 100%; flex-direction: row; align-items: center; gap: 12px; } button.ub.wide small { margin: 0 0 0 auto; }
+button.ub:not(:disabled):not(.poor) { border-color: rgba(120,190,255,.75); box-shadow: 0 0 10px rgba(80,160,255,.35); }
+button.ub.poor { opacity: .6; }
+button.ub:disabled { cursor: default; } button.ub:disabled:not(.owned) { opacity: .45; }
+button.ub.owned { background: rgba(30,90,70,.55); border-color: #5fe0a8; } button.ub.owned small { color: #7dffc4; }
+.dinfo2 { font-size: 12.5px; color: var(--dim); text-align: center; line-height: 1.5; } .dinfo2 b { color: var(--txt); } .dinfo2 i { color: #7dffc4; font-style: normal; } .dinfo2 em { color: #ffd35a; font-style: normal; }
+.dinfo2 .sh { width: 12px; height: 12px; margin-right: 4px; }
+.reset { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); text-align: center; }
+button.danger { border-color: #ff7a88; color: #ffb4bc; } button.danger:hover { background: #7a1f30; }
+@media (max-width: 560px) { .ugrid { grid-template-columns: 1fr; } button.ub { min-height: 52px; } .uhead .dim { font-size: 11px; } }
