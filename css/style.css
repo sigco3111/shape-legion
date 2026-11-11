@@ -165,3 +165,9 @@ button.sk.off { opacity: .45; }
 
 /* ---- terrain (1e) ---- */
 button.stage small .terr { color: #7fd0ff; font-weight: 600; white-space: nowrap; }
+
+/* credits + terrain legend */
+#credits .menu-card { max-height: 88vh; overflow-y: auto; }
+.clist { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.45; text-align: left; }
+.clist li { padding-bottom: 6px; border-bottom: 1px solid var(--line); } .clist small { color: var(--dim); word-break: break-all; } .clist a { color: #7dffc4; }
+.legend { font-size: 11.5px; line-height: 1.4; } .legend:empty { display: none; } .legend span { white-space: nowrap; }
