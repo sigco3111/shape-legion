@@ -42,10 +42,12 @@
 - **데모 전투**: 소형 200 vs 200 · 표준 600 vs 600 · 중형 1000 vs 1000 · 대형 1500 vs 1500 중 선택
 - 유닛 5종(원 병사 · 사각 방패수 · 삼각 궁수 · 마름모 기수 · 오각 투석기)과 상성표(`js/units.js`에서 조정)
 - 카메라 이동·확대, 일시정지, ×1/×2/×4 배속, 같은 시드로 다시 보기, FPS/유닛 수 표시
-- 설정: 언어, 최대 유닛 수(자동/500/1000/2000/3000), 이펙트, 음량, 화면 흔들림
+- 설정: 언어, 최대 유닛 수(자동/500/1000/2000/3000), 이펙트, 전체/효과음/음악 음량·음소거, 화면 흔들림
+- **소리**(1f): 근접·화살·투석·폭발·사망·지휘관 스킬·승패 효과음과 메뉴/전투 BGM(`assets/audio/`, OGG 약 0.7MB). 첫 클릭/터치 때 시작하고, 파일을 못 불러오면 조용히 넘어갑니다.
+- **크레딧**: 시작 화면의 '크레딧' 버튼에서 사용 에셋의 제작자·라이선스·출처를 확인할 수 있습니다.
 
 ## 계획된 기능
-사기/패주 · 효과음/음악 · 시각 다듬기(라운드 1f 제안). 자세한 설계는 [docs/DESIGN.md](docs/DESIGN.md).
+사기/패주 · UI 개편(다음 라운드 제안). 자세한 설계는 [docs/DESIGN.md](docs/DESIGN.md).
 
 ## 조작
 | 입력 | 동작 |
@@ -68,8 +70,8 @@ URL 옵션: `?seed=N` `?cap=500|1000|2000|3000` `?noadapt=1` `?debug=1`(통계 �
 스테이지 검증: `node js/stagetest.js [시드 수] [스테이지|all]` — 스테이지별 예상 업그레이드 수준에서 자동 배치(균형·원거리·근접·기병 4종)와 병사 한 덩어리 승률, 최대 전투 시간을 출력하고, `node js/stagetest.js 1 1 skills`로 스킬 효과를 확인합니다.
 
 ## 프로젝트 구조
-`index.html` · `css/style.css` · `js/` (`main` 루프/설정/캠페인 흐름 · `stages` 스테이지·별·저장 · `upgrades` 업그레이드·기술 트리·전투 보정 수치 · `deploy` 칠하기 로직 · `skills` 지휘관 스킬 데이터/상태 · `terrain` 지형 데이터 · `terraintest` 지형 검증 · `stagetest` 스테이지·스킬 검증 · `units` 수치 표 · `sim` 시뮬레이션 · `formation` 진형 · `render` 렌더러 · `ui` DOM · `i18n` · `audio` · `rng` · `selftest`) · `docs/DESIGN.md` · `CREDITS.md`
+`index.html` · `css/style.css` · `js/` (`main` 루프/설정/캠페인 흐름 · `stages` 스테이지·별·저장 · `upgrades` 업그레이드·기술 트리·전투 보정 수치 · `deploy` 칠하기 로직 · `skills` 지휘관 스킬 데이터/상태 · `terrain` 지형 데이터 · `terraintest` 지형 검증 · `stagetest` 스테이지·스킬 검증 · `units` 수치 표 · `sim` 시뮬레이션 · `formation` 진형 · `render` 렌더러 · `ui` DOM · `i18n` · `audio` (WebAudio 엔진) · `audiotest` (소리 모의 검증) · `rng` · `selftest`) · `docs/DESIGN.md` · `CREDITS.md`
 캐시 무효화: `index.html`과 모든 `js` import의 `?v=<번호>`를 함께 올립니다.
 
 ## 크레딧 / 라이선스
-코드: MIT (`LICENSE`). 외부 에셋은 아직 사용하지 않습니다 — [CREDITS.md](CREDITS.md).
+코드: MIT (`LICENSE`). 소리 에셋은 Kenney(CC0), BMacZero(CC0), Almitory(CC0), Tozan(CC0), Snabisch(CC0), dklon(**CC-BY 3.0**, "Boom Pack 2") — 자세한 표기는 [CREDITS.md](CREDITS.md)와 게임 내 크레딧 화면.
