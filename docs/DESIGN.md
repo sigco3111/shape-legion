@@ -47,13 +47,13 @@
 ## 6. UI/UX
 - 한국어 기본, English 선택(`js/i18n.js` 사전; 시작 화면·설정에서 전환, localStorage 저장).
 - 모바일/터치 우선: 44px 이상 버튼, 손가락 칠하기·핀치(다음 라운드 칠하기 UI), 일시정지·×1/×2/×4, 같은 시드 다시/새 전투.
-- 소리: `js/audio.js` WebAudio 합성(에셋 파일 없음), 설정에서 음량.
+- 소리: `js/audio.js` WebAudio 엔진 + `assets/audio/*.ogg`(카탈로그 에셋). 설정에서 전체/효과음/음악 음량·음소거(`localStorage shapelegion.audio.v1`).
 
 ## 7. 에셋/라이선스
-- 현재 외부 에셋 없음(모두 코드로 그림/합성). 추가 시 https://github.com/sigco3111/game-asset-catalog 에서 CC0, CC-BY, MIT, GPL 2.0/3.0만 사용. CC-BY는 `CREDITS.md`와 게임 내 크레딧 화면에 표기.
+- 소리 에셋만 외부(`assets/audio/`, 약 0.7MB, 전부 OGG 변환·자름). 목록과 라이선스는 `CREDITS.md`와 게임 내 크레딧 화면. 추가 시 https://github.com/sigco3111/game-asset-catalog 에서 CC0, CC-BY, MIT, GPL 2.0/3.0만 사용. CC-BY는 `CREDITS.md`와 게임 내 크레딧 화면에 표기.
 
 ## 8. 파일 구조(얕게 유지)
-`index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,audio,rng,selftest,stagetest,stages,deploy,upgrades,skills,terrain,terraintest}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
+`index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,audio,audiotest,rng,selftest,stagetest,stages,deploy,upgrades,skills,terrain,terraintest}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
 캐시 무효화: `index.html`과 모든 `js/*.js` import의 `?v=<번호>`를 **한꺼번에 같은 값으로** 올린다(예: `2026111101`; 모듈마다 값이 다르면 같은 파일이 두 번 로드됨).
 
 ## 9. 자체 테스트 (`js/selftest.js`)
@@ -90,5 +90,13 @@
   - [x] 배치: 물·벽 칸 칠하기 금지(빨간 칸), 적 진형도 지형 회피
   - [x] 스테이지 4~8에 지형 추가, 스테이지 9(다리 2 + 궁수 언덕)·10(최종) 추가 → 총 10개, 템플릿 배치는 막힌 칸을 피하도록 수정
   - [x] i18n ko/en, 스테이지 목록에 지형 라벨(🌊🌉🧱⛰). 소리·신규 유닛 없음
-- **1f(제안)**: 효과음/음악(카탈로그 에셋 + 크레딧)과 시각 다듬기.
+- **1f** (진행 체크리스트):
+  - [x] `assets/audio/` OGG 18개(효과음 16 + BGM 2), 합계 약 0.7MB. 카탈로그 팩: Impact/Interface/Music Jingles(Kenney), Metal Impact(BMacZero), Fantasy Magic Spell(Almitory), Rpg Loop 1(Tozan), Calm Ambient 3(Snabisch) 모두 CC0, Boom Pack 2(dklon) CC-BY 3.0
+  - [x] `js/audio.js` 재작성: 첫 제스처에서 시작(자동재생 정책·모바일), 디코드 버퍼 캐시, 동시 음성 상한 24(우선 음은 +8), 종류별 최소 간격·동시 수, 피치 ±6%, 이벤트 집계(간격 안의 타격 수 → 음량, 12개 이상이면 2음), 메뉴↔전투 BGM 페이드, 파일 실패 시 무음
+  - [x] 소리: 근접·화살 발사/명중·투석 발사·폭발·사망·벽 명중·집결/일제 사격/돌격·UI 클릭/확인·승리/패배
+  - [x] 설정: 전체/효과음/음악 슬라이더 + 음소거, 저장, ko/en
+  - [x] 크레딧 화면(시작 화면 버튼; 제작자·라이선스·출처·사용 파일, CC-BY 표기) + `CREDITS.md`
+  - [x] 시각: 화살이 벽에 맞으면 불꽃 파티클(`EV.WALL`), 배치 화면에 지형 범례
+  - [x] `node js/audiotest.js`: 모의 AudioContext로 버퍼 없음/음성 상한/간격 제한/파일 존재 확인
+  - [ ] UI 개편은 다음 라운드
 - **2**: 사기/패주, 지형 버프, 효과음/음악(카탈로그 에셋), 미니맵, 크레딧 화면 완성.
