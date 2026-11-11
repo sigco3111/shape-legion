@@ -7,7 +7,7 @@
   <meta name="description" content="도형 군단 — 도형 병력을 그려 배치하고 자동으로 싸우는 수천 명 규모 웹 전략 게임">
   <meta name="theme-color" content="#070b16">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="css/style.css?v=2026111101">
+  <link rel="stylesheet" href="css/style.css?v=2026111102">
 </head>
 <body>
   <div id="app">
@@ -21,13 +21,58 @@
         <p class="tag" data-i18n="tagline"></p>
         <h2 class="lbl" data-i18n="menu.preset"></h2>
         <div id="presetBtns" class="seg" role="radiogroup"></div>
-        <button id="demoBtn" class="big" type="button" data-i18n="menu.demo"></button>
+        <button id="campaignBtn" class="big" type="button" data-i18n="menu.campaign"></button>
+        <button id="demoBtn" class="big alt" type="button" data-i18n="menu.demo"></button>
         <div class="row">
           <button id="menuSettings" type="button" data-i18n="menu.settings"></button>
           <button id="menuCredits" type="button" data-i18n="menu.credits"></button>
           <button id="menuLang" type="button" data-i18n="menu.lang"></button>
         </div>
         <p class="note" data-i18n="menu.note"></p>
+      </div>
+    </section>
+
+    <!-- stage select -->
+    <section id="stages" class="screen hidden">
+      <div class="menu-card">
+        <h1 data-i18n="stage.title"></h1>
+        <p class="tag"><span data-i18n="stage.gold"></span> <b id="goldTxt" class="gold">0</b></p>
+        <div id="stageList" class="stage-list"></div>
+        <div class="row"><button id="stagesBack" type="button" class="big alt" data-i18n="banner.menu"></button></div>
+      </div>
+    </section>
+
+    <!-- deploy phase -->
+    <section id="deploy" class="hidden">
+      <div id="dTop">
+        <button id="dBack" type="button" class="ic" data-i18n-title="dep.back">←</button>
+        <div class="dinfo">
+          <div class="dtitle"><b id="dStage"></b><span id="dDesc" class="dim"></span></div>
+          <div class="bar" id="dBudget"><i id="dBudgetBar"></i><span id="dBudgetTxt"></span></div>
+          <div class="bar pop" id="dPop"><i id="dPopBar"></i><span id="dPopTxt"></span></div>
+          <div class="denemy"><span class="dim" data-i18n="dep.enemy"></span><span id="dEnemy" class="chips"></span></div>
+        </div>
+        <button id="dFit" type="button" class="ic" data-i18n-title="hud.fit">⌖</button>
+      </div>
+      <div id="dPanel">
+        <div id="dUnits" class="units" role="radiogroup"></div>
+        <div class="drow">
+          <div class="seg" id="dBrush" role="radiogroup"><button type="button" data-brush="1">1</button><button type="button" data-brush="2">2</button><button type="button" data-brush="3">3</button></div>
+          <button id="dErase" type="button" data-i18n="dep.erase"></button>
+          <button id="dUndo" type="button" data-i18n="dep.undo"></button>
+          <button id="dClear" type="button" data-i18n="dep.clear"></button>
+          <button id="dFight" type="button" class="big fight" data-i18n="dep.fight"></button>
+        </div>
+        <div class="dim hint" data-i18n="dep.help"></div>
+      </div>
+    </section>
+
+    <!-- campaign result -->
+    <section id="result" class="screen hidden" role="dialog" aria-live="polite">
+      <div class="menu-card">
+        <h1 id="resTitle"></h1><p id="resSub" class="tag"></p><p id="resStars" class="stars"></p>
+        <p id="resGold" class="gold big-gold"></p>
+        <div class="row"><button id="resRetry" type="button" class="big" data-i18n="res.retry"></button><button id="resNext" type="button" class="big" data-i18n="res.next"></button><button id="resMenu" type="button" class="big alt" data-i18n="banner.menu"></button></div>
       </div>
     </section>
 
@@ -90,6 +135,6 @@
     <section id="selftest" class="screen hidden"><pre id="selftestOut"></pre></section>
     <div id="toast" class="hidden" role="status"></div>
   </div>
-  <script type="module" src="js/main.js?v=2026111101"></script>
+  <script type="module" src="js/main.js?v=2026111102"></script>
 </body>
 </html>
