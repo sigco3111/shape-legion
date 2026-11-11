@@ -53,8 +53,8 @@
 - 소리(`assets/audio/`, 약 0.7MB, 전부 OGG 변환·자름)와 글꼴 `assets/kenney-pixel-square.woff2`(Kenney Pixel Square, CC0, ASCII 문자·기호 부분집합 약 1KB; 숫자는 한글처럼 보여서 제외 — 숫자·한글은 모노스페이스 시스템 스택). 목록과 라이선스는 `CREDITS.md`와 게임 내 크레딧 화면. 추가 시 https://github.com/sigco3111/game-asset-catalog 에서 CC0, CC-BY, MIT, GPL 2.0/3.0만 사용. CC-BY는 `CREDITS.md`와 게임 내 크레딧 화면에 표기.
 
 ## 8. 파일 구조(얕게 유지)
-`index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,audio,audiotest,rng,selftest,stagetest,stages,deploy,upgrades,skills,terrain,terraintest}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
-캐시 무효화: `index.html`과 모든 `js/*.js` import의 `?v=<번호>`를 **한꺼번에 같은 값으로** 올린다(예: `2026111107`; 모듈마다 값이 다르면 같은 파일이 두 번 로드됨).
+`index.html`, `css/style.css`, `js/{main,units,sim,formation,render,ui,i18n,icons,audio,audiotest,rng,selftest,stagetest,stages,deploy,upgrades,skills,terrain,terraintest}.js`, `assets/`, `docs/`, `README.md`, `CREDITS.md`, `LICENSE`.
+캐시 무효화: `index.html`과 모든 `js/*.js` import의 `?v=<번호>`를 **한꺼번에 같은 값으로** 올린다(예: `2026111108`; 모듈마다 값이 다르면 같은 파일이 두 번 로드됨).
 
 ## 6-1. UI 디자인: 레트로 픽셀 CRT (1g)
 - 컨셉: 1980년대 군사 워게임 터미널. 팔레트 `--bg #0c0a06` · `--amber #ffb000`(본문) · `--amber2 #b08010`(보조 글자) · `--amber3 #7a5a10`(테두리/비활성) · `--paper #efe6cf`(강조) · `--alert #ff4b3a`(경고·주요 행동에만). 아군/적 파랑·빨강은 전장·도형에서만.
@@ -62,6 +62,7 @@
 - 기본 컴포넌트: 픽셀 버튼 플레이트(높이 44px 이상, hover/focus 색 반전, 눌림), 괄호 라벨 `[ 시작 ]`(`button.big`, `.br`), 장부 행 `.lg`/`.fld`, 블록 막대 `.bar`, 패널 `.menu-card`, 툴팁 `[data-tip]`. 둥근 모서리·블러·그라데이션 글로우 금지.
 - CRT 오버레이: `#crt` 하나(고정, `pointer-events:none`, 캔버스에는 filter/blend 없음). 1단계=스캔라인 10%+비네트+아주 느린 깜빡임, 2단계=더 진한 스캔라인+베젤. `prefers-reduced-motion`이면 깜빡임 없음. 설정 'CRT 효과' 끄기/약하게/보통 → `localStorage shapelegion.crt.v1`(0/1/2, 기본 1), `index.html` head의 인라인 스크립트가 `html[data-crt]`를 먼저 적용하고 `ui.setCrt()`가 변경.
 - 시작 화면: 부팅 터미널(타이핑 3줄, 아무 키/탭이면 건너뜀, 메뉴는 타이핑 중에도 작동), `SHAPE LEGION` 픽셀 제목 + '도형 군단', 세로 메뉴(깜빡이는 블록 커서, ↑/↓/Enter, 터치 44px+), 오른쪽 5종 진형 도식(SVG), `LANG: [KO] EN`.
+- 스테이지 선택 '작전 지도'(1g-2): `#stageMap`(비율 720×400, 좁은 화면은 가로 스크롤) = SVG 격자·점선 경로(계단식 직각 꺾임) + 노드 `button.nd` 10개(`ui.js`의 `NODES` 좌표, 경로 순서 1→10). 상태: 클리어(호박색 채움 + 아래 픽셀 별 3칸) / 가능(윤곽 + 깜빡이는 모서리 커서) / 잠김(어둡게 + 픽셀 자물쇠, 탭하면 안내 토스트). 선택 노드는 빨간 테두리 + 빨간 커서. 노드 위에 지형 아이콘(강·다리·벽·언덕). 브리핑 `#stageBrief`: 스테이지 이름·설명, 예산(업그레이드 반영)/권장/보유 골드/인구 상한, 지형, 적 구성(유닛별 픽셀 아이콘 × 수, `enemyCounts`), 별 규칙, 최고 기록, 예산 부족 경고. 행동 `#stageGo`(빨간 [ 출격 ]) · `#upgradesBtn` · `#stagesBack`; 좁은 화면(≤860px)에서는 브리핑이 지도 아래로 내려가고 행동 막대가 화면 아래에 고정. 조작: 탭/클릭=선택(선택된 노드를 다시 탭하면 출격), ←/→=경로 순서, ↑/↓=가까운 노드, Enter=출격, Esc=뒤로. 해금·저장·시작 흐름은 그대로. `js/icons.js` = 픽셀 비트맵(river/bridge/wall/hill/lock/star + 유닛 5종)을 SVG rect로 그리는 `iconSvg()`/`unitIcon()`. 이전 `index.html`(`#stageMap` 없음)이면 옛 목록 UI로 폴백.
 
 ## 9. 자체 테스트 (`js/selftest.js`)
 - 브라우저 `?selftest=1`(`&full=1` 확장), Node `node js/selftest.js [full]`.
@@ -111,4 +112,10 @@
   - [x] 디자인 토큰 + 기본 컴포넌트(버튼 플레이트, 괄호 라벨, 장부 행, 블록 막대, 패널, 툴팁)로 모든 화면 재스타일(설정·크레딧·업그레이드·결과는 토큰 적용만)
   - [x] `#crt` 오버레이 + 설정 'CRT 효과'(`shapelegion.crt.v1`) + i18n ko/en
   - [x] 시작 화면 부팅 터미널·픽셀 제목·세로 메뉴(키보드)·진형 도식·언어 토글, Kenney Pixel Square 서브셋 woff2 + 크레딧
-  - [ ] 1g-2 스테이지 선택·배치 HUD 재디자인 / 1g-3 전투 HUD·결과 재디자인
+  - [ ] 1g-3 전투 HUD·결과·배치 HUD 재디자인
+- **1g-2** (UI 레트로 픽셀 CRT, 2/3 — 스테이지 선택 '작전 지도'):
+  - [x] `js/icons.js` 픽셀 아이콘(강·다리·벽·언덕·자물쇠·별 + 유닛 도형 5종) — SVG rect 배열, 이모지 없음
+  - [x] 픽셀 격자 작전 지도 + 점선 경로 + 노드 10개(클리어/가능/잠김, 별 1~3, 지형 아이콘)
+  - [x] 브리핑 패널(권장 예산·보유 골드·적 구성 아이콘·별 규칙·최고 기록·예산 부족 경고) + 빨간 [ 출격 ] / [ 업그레이드 ]
+  - [x] 탭·클릭 선택, 방향키/Enter/Esc, 좁은 화면(가로 스크롤 지도·브리핑 아래·하단 고정 행동 막대·터치 44px+)
+  - [x] i18n ko/en, 저장 형식·해금 규칙·시작 흐름 변경 없음, 배치/전투 HUD는 손대지 않음 (1g-3)
