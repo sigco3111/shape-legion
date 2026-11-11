@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <script>try{var c=localStorage.getItem('shapelegion.crt.v1');c=c==null?1:+c;document.documentElement.dataset.crt=(c===0||c===1||c===2)?c:1}catch(e){document.documentElement.dataset.crt=1}</script>
   <link rel="preload" href="assets/kenney-pixel-square.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2026111108">
+  <link rel="stylesheet" href="css/style.css?v=2026111109">
 </head>
 <body>
   <div id="app">
@@ -74,11 +74,13 @@
       <div id="dTop">
         <button id="dBack" type="button" class="ic" data-i18n-title="dep.back">←</button>
         <div class="dinfo">
-          <div class="dtitle"><b id="dStage"></b><span id="dDesc" class="dim"></span></div>
+          <div class="dtitle"><b id="dStage"></b><span id="dDesc" class="dim"></span><span class="wal"><em data-i18n="stage.gold"></em> <b id="dWallet">0G</b></span></div>
+          <div class="dled">
+            <div class="led" id="dBudget"><em data-i18n="dep.bud"></em><div class="bar"><i id="dBudgetBar"></i></div><b id="dBudgetTxt"></b></div>
+            <div class="led pop" id="dPop"><em data-i18n="dep.pop"></em><div class="bar"><i id="dPopBar"></i></div><b id="dPopTxt"></b></div>
+            <div class="denemy"><em data-i18n="dep.enemy"></em><span id="dEnemy" class="chips"></span></div>
+          </div>
           <div id="dLegend" class="legend dim"></div>
-          <div class="bar" id="dBudget"><i id="dBudgetBar"></i><span id="dBudgetTxt"></span></div>
-          <div class="bar pop" id="dPop"><i id="dPopBar"></i><span id="dPopTxt"></span></div>
-          <div class="denemy"><span class="dim" data-i18n="dep.enemy"></span><span id="dEnemy" class="chips"></span></div>
         </div>
         <button id="dFit" type="button" class="ic" data-i18n-title="hud.fit">⌖</button>
       </div>
@@ -86,10 +88,11 @@
         <div id="dInfo" class="dinfo2" aria-live="polite"></div>
         <div id="dUnits" class="units" role="radiogroup"></div>
         <div class="drow">
+          <em class="tl" data-i18n="dep.brush"></em>
           <div class="seg" id="dBrush" role="radiogroup"><button type="button" data-brush="1">1</button><button type="button" data-brush="2">2</button><button type="button" data-brush="3">3</button><button type="button" data-brush="4" id="dBrush4" class="hidden">4</button></div>
-          <button id="dErase" type="button" data-i18n="dep.erase"></button>
-          <button id="dUndo" type="button" data-i18n="dep.undo"></button>
-          <button id="dClear" type="button" data-i18n="dep.clear"></button>
+          <button id="dErase" type="button" class="tb" data-i18n="dep.erase"></button>
+          <button id="dUndo" type="button" class="tb" data-i18n="dep.undo"></button>
+          <button id="dClear" type="button" class="tb" data-i18n="dep.clear"></button>
           <button id="dFight" type="button" class="big fight" data-i18n="dep.fight"></button>
         </div>
         <div class="dim hint" data-i18n="dep.help"></div>
@@ -108,19 +111,19 @@
     <!-- battle HUD -->
     <section id="hud" class="hidden">
       <div id="topbar">
-        <button id="btnMenu" type="button" class="ic" data-i18n-title="hud.menu">☰</button>
-        <div class="tally blue" id="tallyBlue"><div class="tot"><span class="dot"></span><b id="totBlue">0</b></div><div class="chips" id="chipsBlue"></div></div>
-        <div class="mid"><div id="timer">0:00</div><div class="meter"><i id="meterBlue"></i><i id="meterRed"></i></div><div id="seedTxt" class="seed"></div></div>
-        <div class="tally red" id="tallyRed"><div class="tot"><b id="totRed">0</b><span class="dot"></span></div><div class="chips" id="chipsRed"></div></div>
-        <button id="btnSettings" type="button" class="ic" data-i18n-title="hud.settings">⚙</button>
+        <button id="btnMenu" type="button" class="pl" data-i18n="hud.menu" data-i18n-title="hud.menu">메뉴</button>
+        <div class="tally blue" id="tallyBlue"><div class="tot"><span class="dot"></span><em data-i18n="team.0"></em><b id="totBlue">0</b></div><div class="chips" id="chipsBlue"></div></div>
+        <div class="mid"><div class="mrow"><span id="hStage" class="hst"></span><div id="timer">0:00</div></div><div class="meter"><i id="meterBlue"></i><i id="meterRed"></i></div><div id="seedTxt" class="seed"></div></div>
+        <div class="tally red" id="tallyRed"><div class="tot"><b id="totRed">0</b><em data-i18n="team.1"></em><span class="dot"></span></div><div class="chips" id="chipsRed"></div></div>
+        <button id="btnSettings" type="button" class="pl" data-i18n="hud.settings" data-i18n-title="hud.settings">설정</button>
       </div>
       <div id="controls">
         <button id="btnPause" type="button" class="ic" data-i18n-title="hud.pause">II</button>
         <div class="seg" id="speedBtns" role="radiogroup"><button type="button" data-speed="1" class="on">×1</button><button type="button" data-speed="2">×2</button><button type="button" data-speed="4">×4</button></div>
-        <button id="btnReplay" type="button" class="ic" data-i18n-title="hud.restart">⟲</button>
-        <button id="btnNew" type="button" class="ic" data-i18n-title="hud.newseed">NEW</button>
+        <button id="btnReplay" type="button" class="pl" data-i18n="hud.retry" data-i18n-title="hud.restart">재시도</button>
+        <button id="btnNew" type="button" class="pl" data-i18n-title="hud.newseed">NEW</button>
         <button id="btnFit" type="button" class="ic" data-i18n-title="hud.fit">⌖</button>
-        <button id="btnFps" type="button" class="ic" data-i18n-title="hud.overlay">FPS</button>
+        <button id="btnFps" type="button" class="pl" data-i18n-title="hud.overlay">FPS</button>
         <select id="presetSel" aria-label="preset"></select>
       </div>
       <div id="skills" class="hidden" role="group"></div>
@@ -173,6 +176,6 @@
     <div id="toast" class="hidden" role="status"></div>
   </div>
   <div id="crt" aria-hidden="true"></div>
-  <script type="module" src="js/main.js?v=2026111108"></script>
+  <script type="module" src="js/main.js?v=2026111109"></script>
 </body>
 </html>
