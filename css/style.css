@@ -97,6 +97,11 @@ input[type=range], input[type=checkbox] { accent-color: var(--amber); }
 #toast { position: absolute; top: 110px; left: 50%; transform: translateX(-50%); background: var(--bg); color: var(--paper); --bc: var(--amber); padding: var(--s2) var(--s4); max-width: 92vw; z-index: 5; }
 #toast::before { content: "> "; color: var(--amber2); } #toast { text-transform: none; font-size: var(--t-sm); letter-spacing: var(--track); text-align: center; }
 @media (max-width: 720px) { #toast { top: 150px; } }
+/* upgrades ledger: toast sits in the free footer row (bottom-right of the card) instead of covering the unit header */
+#app:has(#upgrades:not(.hidden)) #toast { top: auto; left: auto; transform: none; bottom: 34px; right: max(32px, calc(50% - 468px)); max-width: min(420px, calc(100% - 220px)); }
+@media (max-width: 720px) { #app:has(#upgrades:not(.hidden)) #toast { bottom: 22px; right: 14px; max-width: calc(100% - 190px); padding: var(--s1) var(--s3); } }
+/* stage map (desktop): toast below the map instead of over the header hint */
+@media (min-width: 861px) { #app:has(#stages:not(.hidden)) #toast { top: auto; bottom: 40px; } }
 #selftest { background: var(--bg); align-items: flex-start; justify-content: flex-start; z-index: 9; }
 #selftestOut { margin: 0; font: 13px/1.4 var(--f-mono); white-space: pre-wrap; color: var(--amber); }
 
@@ -142,6 +147,9 @@ button.lang b { color: var(--paper); font-weight: 700; } button.lang:hover b, bu
 @keyframes blink { 50% { opacity: 0; } }
 @media (max-width: 860px) { .term { grid-template-columns: 1fr; gap: var(--s4); } .term-side { display: none; } .sub { font-size: 18px; } }
 @media (max-height: 520px) { .boot { display: none; } .term .tag, .term .note { display: none; } }
+/* short desktop viewports (e.g. 1280x720): compact start screen so the menu needs no scrolling */
+@media (max-height: 860px) and (min-width: 861px) { #menu { padding-top: 16px; padding-bottom: 16px; } .term { --t-title: 48px; } .boot { min-height: 4.2em; margin-bottom: var(--s2); } .term .tag { margin: var(--s1) 0 var(--s3); } .term .lbl { margin-top: var(--s3); } .term .note { margin: var(--s2) 0 0; } button.lang { margin-top: var(--s2); } }
+@media (max-height: 780px) and (min-width: 861px) { .term .note { display: none; } }
 
 /* ---- HUD (1g-3): battle ledger bar, plates, skill key plates ---- */
 #hud { position: absolute; inset: 0; pointer-events: none; }
