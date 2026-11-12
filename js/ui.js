@@ -1,13 +1,13 @@
 // DOM glue: menu, HUD, settings, banner, toast, camera input (mouse/touch/pinch/wheel via pointer events).
-import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111109';
-import { PRESETS } from './formation.js?v=2026111109';
-import { NT, UNITS } from './units.js?v=2026111109';
-import { STAGES, enemyCounts } from './stages.js?v=2026111109';
-import { SKILLS, cooldownLeft } from './skills.js?v=2026111109';
-import * as audio from './audio.js?v=2026111109';
-import { terrainFor, TERR_ICON } from './terrain.js?v=2026111109';
-import { iconSvg, unitIcon } from './icons.js?v=2026111109';
-import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111109';
+import { t, getLang, setLang, onLang, applyI18n } from './i18n.js?v=2026111110';
+import { PRESETS } from './formation.js?v=2026111110';
+import { NT, UNITS } from './units.js?v=2026111110';
+import { STAGES, enemyCounts } from './stages.js?v=2026111110';
+import { SKILLS, cooldownLeft } from './skills.js?v=2026111110';
+import * as audio from './audio.js?v=2026111110';
+import { terrainFor, TERR_ICON } from './terrain.js?v=2026111110';
+import { iconSvg, unitIcon } from './icons.js?v=2026111110';
+import { TECH, MAXLV, POP, STAT_KEYS, STAT_PCT, mobKey, statCost, buildMods, effStage, effStats } from './upgrades.js?v=2026111110';
 
 const $ = (id) => document.getElementById(id);
 export const CAPS = ['auto', 500, 1000, 2000, 3000];
@@ -17,7 +17,7 @@ const BOOT = ['BOOT SEQUENCE...', 'ARMY REGISTRY ... OK', `${NT} UNIT TYPES LOAD
 
 export function createUI(h) {
   const el = {};
-  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setSfx', 'setMus', 'setMute', 'setShake', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result', 'upgrades']
+  ['menu', 'hud', 'banner', 'settings', 'credits', 'toast', 'fps', 'debug', 'timer', 'totBlue', 'totRed', 'meterBlue', 'meterRed', 'seedTxt', 'chipsBlue', 'chipsRed', 'btnPause', 'presetSel', 'presetBtns', 'speedBtns', 'bannerTitle', 'bannerSub', 'bannerStars', 'setCap', 'setVol', 'setSfx', 'setMus', 'setMute', 'setShake', 'setFps', 'setLang', 'setFx', 'view', 'stages', 'deploy', 'result', 'upgrades']
     .forEach((k) => (el[k] = $(k)));
   const ui = { el, preset: h.settings.preset };
 
@@ -230,50 +230,67 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
     });
     el.view.style.cursor = st.aim >= 0 ? 'crosshair' : '';
   };
-  // ---- upgrade screen ----
-  let upTab = 'army';
-  ui.buildUpgrades = (save) => {
-    $('upGold').textContent = save.gold;
-    $('upTabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.tab === upTab));
-    const box = $('upBody'); box.innerHTML = '';
-    const up = save.up;
-    const mk = (parent, cls, html, cost, state, fn) => { // state: 'buy' | 'max' | 'locked'
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'ub ' + cls + (state === 'max' ? ' owned' : '');
-      const afford = save.gold >= cost;
-      b.innerHTML = `${html}<small>${state === 'max' ? t('up.owned') : state === 'locked' ? t('up.locked') : cost + 'G'}</small>`;
-      if (state === 'locked' || state === 'max') b.disabled = true; else { b.classList.toggle('poor', !afford); b.onclick = () => { if (!afford) { ui.toast(t('up.need'), 1800); return; } h.onBuy(...fn); }; }
-      parent.appendChild(b); return b;
-    };
-    if (upTab === 'army') {
-      const sec = document.createElement('div'); sec.className = 'urow';
-      sec.innerHTML = `<div class="uhead"><b>${t('up.pop')}</b><span class="dim">${t('up.pop.d', { n: POP.step })}</span></div>`;
-      const lv = up.pop, mx = POP.cost.length;
-      mk(sec, 'wide', `<b>${t('up.lv', { l: lv, m: mx })}</b><span>+${lv * POP.step}</span>`, POP.cost[lv], lv >= mx ? 'max' : 'buy', ['pop']);
-      box.appendChild(sec);
-      for (let ty = 0; ty < UNITS.length; ty++) {
-        const r = document.createElement('div'); r.className = 'urow';
-        r.innerHTML = `<div class="uhead">${unitIcon(ty, 2, 'b')}<b>${t('unit.' + ty)}</b></div>`;
-        const g = document.createElement('div'); g.className = 'ugrid';
-        STAT_KEYS.forEach((k, ki) => {
-          const l = up.st[ty][ki], nm = t('up.' + (k === 'mob' ? mobKey(ty) : k));
-          mk(g, '', `<b>${nm}</b><span>${t('up.lv', { l, m: MAXLV })} · +${Math.round(STAT_PCT[k] * l * 100)}%</span>`, l < MAXLV ? statCost(ty, l) : 0, l >= MAXLV ? 'max' : 'buy', ['stat', ty, ki]);
-        });
-        r.appendChild(g); box.appendChild(r);
-      }
-    } else {
-      TECH.forEach((br, bi) => {
-        const r = document.createElement('div'); r.className = 'urow';
-        r.innerHTML = `<div class="uhead"><b>${t('tech.' + br.id)}</b><span class="dim">${up.tech[bi]}/3</span></div>`;
-        const g = document.createElement('div'); g.className = 'ugrid';
-        br.nodes.forEach((nd, ni) => {
-          const own = up.tech[bi] > ni, state = own ? 'max' : up.tech[bi] === ni ? 'buy' : 'locked';
-          mk(g, 'node', `<b>${t('tech.' + br.id + '.' + (ni + 1))}</b><span>${t('tech.' + br.id + '.' + (ni + 1) + '.d')}</span>`, nd.cost, state, ['tech', bi, ni]);
-        });
-        r.appendChild(g); box.appendChild(r);
-      });
-    }
+  // ---- upgrade screen: 'war ledger' (left nav plates | stat rows with block bars, or the tech tree diagram + detail panel) ----
+  let upTab = 0, upSel = null;
+  const NAV = [0, 1, 2, 3, 4, 'pop', 'tech'];
+  const navIcon = (n) => (typeof n === 'number' ? unitIcon(n, 3) : iconSvg(n === 'pop' ? 'arrow' : 'tree', 3));
+  const navName = (n) => t('up.nav.' + n);
+  const BR_ICON = ['circle', 'square', 'triangle', 'diamond', 'pentagon', 'flag'];
+  const lvBar = (l, m) => `<span class="lvb" role="img" aria-label="${t('up.lv', { l, m })}">${Array.from({ length: m }, (_, k) => `<i${k < l ? ' class="on"' : ''}></i>`).join('')}</span>`;
+  const techState = (up, bi, ni) => (up.tech[bi] > ni ? 'own' : up.tech[bi] === ni ? 'av' : 'lk');
+  const statRow = (fk, icon, name, l, m, cur, next, cost, gold, buy) => {
+    const max = l >= m, short = max ? 0 : Math.max(0, cost - gold);
+    return `<div class="sr${max ? ' mx' : ''}"><div class="sn">${icon}<b>${name}</b></div>${lvBar(l, m)}<div class="sv"><b>${cur}</b>${max ? '' : `<small>&gt; ${next}</small>`}</div>`
+      + `<div class="sc"><span class="cost">${max ? t('up.max') : cost + 'G'}</span>${short ? `<small class="short">${t('up.short', { n: short })}</small>` : ''}</div>`
+      + `<button type="button" class="buy br" data-fk="${fk}" data-buy="${buy}"${max || short ? ' disabled' : ''}>${max ? t('up.owned') : t('up.buy')}</button></div>`;
   };
-  $('upTabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { upTab = b.dataset.tab; h.onUpgradesRefresh(); } };
+  const techDetail = (save) => {
+    const [bi, ni] = upSel, br = TECH[bi], nd = br.nodes[ni], s = techState(save.up, bi, ni), short = Math.max(0, nd.cost - save.gold), key = `tech.${br.id}.${ni + 1}`;
+    return `<div class="dt-h">${iconSvg(BR_ICON[bi], 3)}<span>${t('tech.' + br.id)} ${ni + 1}/3</span><em class="st ${s}">${t('up.state.' + s)}</em></div><h2>${t(key)}</h2><p class="bd">${t(key + '.d')}</p>`
+      + `<div class="lg"><span>${t('up.cost')}</span><b>${nd.cost}G</b></div><div class="lg"><span>${t('up.gold')}</span><b>${save.gold}G</b></div>`
+      + (s === 'lk' ? `<div class="lg warn"><span>! ${t('up.locked')}</span></div>` : s === 'av' && short ? `<div class="lg warn"><span>! ${t('up.short', { n: short })}</span></div>` : '')
+      + `<button type="button" class="buy br" data-fk="tb" data-buy="tech:${bi}:${ni}"${s === 'av' && !short ? '' : ' disabled'}>${s === 'own' ? t('up.owned') : t('up.buy')}</button>`;
+  };
+  ui.buildUpgrades = (save) => {
+    $('upGold').textContent = save.gold + 'G';
+    { const tb = $('upTabs'); if (tb) tb.classList.add('hidden'); }
+    const box = $('upBody'), act = document.activeElement, fk = act && box.contains(act) ? act.dataset.fk : null, up = save.up, gold = save.gold;
+    const nav = `<nav class="wl-nav" aria-label="${t('up.title')}">${NAV.map((n) => `<button type="button" class="nv${n === upTab ? ' on' : ''}${n === 'pop' ? ' sep' : ''}" data-nav="${n}" data-fk="nv${n}"${n === upTab ? ' aria-current="page"' : ''}>${navIcon(n)}<span>${navName(n)}</span></button>`).join('')}</nav>`;
+    let main = '';
+    if (typeof upTab === 'number') {
+      const ty = upTab, e = effStats(ty, buildMods(up)), mob = e.range > 0 ? `${t('info.rng')} ${Math.round(e.range)}` : `${t('info.spd')} ${Math.round(e.speed)}`;
+      main = `<div class="wl-h"><span class="big-ic">${unitIcon(ty, 5, 'b')}</span><h2>${t('unit.' + ty)}</h2><p class="bd">${t('info.hp')} ${Math.round(e.hp)} · ${t('info.dmg')} ${e.dmg.toFixed(1)} · ${mob}</p></div>`
+        + STAT_KEYS.map((k, ki) => { const l = up.st[ty][ki], pc = Math.round(STAT_PCT[k] * 100); return statRow(`s${ki}`, `<span class="k">${['HP', 'ATK', 'MOB'][ki]}</span>`, t('up.' + (k === 'mob' ? mobKey(ty) : k)), l, MAXLV, `+${pc * l}%`, `+${pc * (l + 1)}%`, l < MAXLV ? statCost(ty, l) : 0, gold, `stat:${ty}:${ki}`); }).join('');
+    } else if (upTab === 'pop') {
+      const l = up.pop, m = POP.cost.length;
+      main = `<div class="wl-h"><span class="big-ic">${iconSvg('arrow', 5)}</span><h2>${t('up.pop')}</h2><p class="bd">${t('up.pop.d', { n: POP.step })}</p></div>`
+        + statRow('p', `<span class="k">POP</span>`, t('up.pop'), l, m, `+${l * POP.step}`, `+${(l + 1) * POP.step}`, l < m ? POP.cost[l] : 0, gold, 'pop');
+    } else {
+      if (!upSel || !TECH[upSel[0]]) { const bi = TECH.findIndex((b, i) => up.tech[i] < b.nodes.length); upSel = bi < 0 ? [0, 0] : [bi, up.tech[bi]]; }
+      const tree = TECH.map((br, bi) => `<div class="tt-row"><span class="tt-l">${iconSvg(BR_ICON[bi], 2)}<b>${t('tech.' + br.id)}</b></span>${br.nodes.map((nd, ni) => {
+        const s = techState(up, bi, ni), on = upSel[0] === bi && upSel[1] === ni;
+        return `<i class="cn${ni === 0 || up.tech[bi] >= ni ? ' on' : ''}"></i><button type="button" class="tn ${s}${on ? ' sel' : ''}" data-node="${bi}:${ni}" data-fk="n${bi}:${ni}" aria-pressed="${on}" aria-label="${t('tech.' + br.id)} ${ni + 1}: ${t('tech.' + br.id + '.' + (ni + 1))} - ${t('up.state.' + s)}">${s === 'own' ? iconSvg('check', 3) : s === 'lk' ? iconSvg('lock', 2) : ni + 1}</button>`;
+      }).join('')}</div>`).join('');
+      main = `<div class="tt-wrap"><div class="tt" role="group" aria-label="${t('up.tech')}"><div class="tt-root">${t('up.root')}</div>${tree}</div><aside class="tt-detail" aria-live="polite">${techDetail(save)}</aside></div>`;
+    }
+    box.innerHTML = nav + `<div class="wl-main">${main}</div>`;
+    const back = fk && box.querySelector(`[data-fk="${fk}"]:not(:disabled)`) || (fk && box.querySelector(`[data-fk="nv${upTab}"]`));
+    if (back) back.focus({ preventScroll: true });
+  };
+  $('upBody').addEventListener('click', (e) => {
+    const nv = e.target.closest('[data-nav]'), nd = e.target.closest('[data-node]'), by = e.target.closest('[data-buy]');
+    if (nv) { upTab = /^\d+$/.test(nv.dataset.nav) ? +nv.dataset.nav : nv.dataset.nav; h.onUpgradesRefresh(); }
+    else if (nd) { upSel = nd.dataset.node.split(':').map(Number); h.onUpgradesRefresh(); }
+    else if (by && !by.disabled) { const p = by.dataset.buy.split(':'); if (h.onBuy(...(p[0] === 'pop' ? ['pop'] : [p[0], +p[1], +p[2]]))) ui.toast(t('up.bought'), 1200); }
+  });
+  $('upBody').addEventListener('keydown', (e) => { // arrows: up/down through nav plates; tech tree nodes in 2D
+    const k = e.key, f = e.target; if (e.ctrlKey || e.metaKey || e.altKey || !k.startsWith('Arrow')) return;
+    if (f.dataset.nav != null && (k === 'ArrowUp' || k === 'ArrowDown')) { const all = [...$('upBody').querySelectorAll('[data-nav]')], i = all.indexOf(f) + (k === 'ArrowDown' ? 1 : -1); if (all[i]) { e.preventDefault(); all[i].focus(); } }
+    else if (f.dataset.node != null) {
+      const [b, n] = f.dataset.node.split(':').map(Number), nb = b + (k === 'ArrowDown') - (k === 'ArrowUp'), nn = n + (k === 'ArrowRight') - (k === 'ArrowLeft'), nx = $('upBody').querySelector(`[data-node="${nb}:${nn}"]`);
+      if (nx) { e.preventDefault(); nx.focus(); }
+    }
+  });
   $('upgradesBtn').onclick = () => h.onUpgrades(); $('resUpg').onclick = () => h.onUpgrades(); $('upBack').onclick = () => h.onUpgradesBack();
   ui.setDeploy = (st, idx) => {
     const name = t('stage.n', { n: idx + 1 }) + ' · ' + t('stage.' + st.id);
@@ -283,12 +300,34 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
     { const tr = terrainFor(st); $('dLegend').innerHTML = tr ? tr.tags.map((k) => `<span>${iconSvg(k, 1)} ${t('terr.' + k)}: ${t('legend.' + k)}</span>`).join(' · ') : ''; $('dDesc').innerHTML = (tr ? tr.tags.map((k) => iconSvg(k, 1) + ' ' + t('terr.' + k)).join(' · ') + ' — ' : '') + t('stage.' + st.id + '.desc'); }
     const ec = enemyCounts(st); $('dEnemy').innerHTML = ec.map((n, ty) => (n ? `<span class="chip" title="${t('unit.' + ty)}">${unitIcon(ty, 2, 'r')}<span>${n}</span></span>` : '')).join('');
   };
+  let payT = 0;
+  const lgRow = (k, v, cls = '') => `<div class="lg ${cls}"><span>${k}</span><b>${v}</b></div>`;
   ui.showResult = (r) => {
-    $('resTitle').textContent = t(r.draw ? 'res.draw' : r.win ? 'res.win' : 'res.lose'); $('resTitle').dataset.team = r.win ? 0 : 1;
-    $('resSub').textContent = t('res.sub', { time: r.time.toFixed(1), s: r.sv, d: r.dv, p: Math.round(100 * r.sv / Math.max(1, r.dv)) });
-    $('resStars').textContent = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + (r.newBest ? '  ' + t('res.new') : '');
-    $('resGold').textContent = r.win ? t('res.goldwin', { g: r.gold, b: r.base, s: r.bonus }) : t('res.golddef', { g: r.gold });
+    const rt = $('resTitle'), L = $('resLedger'), P = $('resPay'), st = STAGES[r.idx];
+    const key = r.draw ? 'draw' : r.win ? 'win' : 'lose', pct = Math.round(100 * r.sv / Math.max(1, r.dv));
+    rt.textContent = L ? t('res.stamp.' + key) : t('res.' + key); rt.dataset.team = r.win ? 0 : 1; rt.dataset.res = key;
+    { const hd = $('resHdr'); if (hd) hd.textContent = `${t('res.hdr')} // ${r.idx != null ? t('stage.n', { n: r.idx + 1 }) : ''}${st ? ' · ' + t('stage.' + st.id) : ''}`; }
+    $('resSub').textContent = L ? t('res.' + key) : t('res.sub', { time: r.time.toFixed(1), s: r.sv, d: r.dv, p: pct });
+    const stars = $('resStars'), nb = r.newBest ? `<b class="nb">${t('res.new')}</b>` : '';
+    if (L) {
+      stars.innerHTML = [0, 1, 2].map((k) => iconSvg('star', 5, `${k < r.stars ? 'lit' : 'off'}" style="--i:${k}`)).join('') + nb;
+      stars.setAttribute('aria-label', t('banner.stars', { n: r.stars }));
+      const rows = [[t('res.l.time'), r.time.toFixed(1) + 's']];
+      if (r.units != null) rows.push([t('res.l.dep'), `${r.units}`], [t('res.l.surv'), `${r.surv} / ${r.units}`]);
+      L.innerHTML = rows.map((x, i) => lgRow(x[0], x[1]).replace('class="lg ', `style="--i:${i}" class="lg `)).join('')
+        + `<div class="lg lv" style="--i:${rows.length}"><span>${t('res.l.val')}</span><div class="bar"><i style="width:${blocks(r.sv, r.dv)}%"></i></div><b>${pct}%</b></div>`
+        + (r.kills != null ? lgRow(t('res.l.kill'), `${r.kills} / ${r.foes}`).replace('class="lg ', `style="--i:${rows.length + 1}" class="lg `) : '');
+    } else stars.textContent = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars) + (r.newBest ? '  ' + t('res.new') : '');
+    if (P) {
+      const lines = r.win ? [[t('res.l.base'), '+' + r.base + 'G'], [t('res.l.bonus'), '+' + r.bonus + 'G']] : [];
+      P.innerHTML = lines.map((x) => lgRow(x[0], x[1])).join('') + `<div class="lg tot"><span>${t(r.win ? 'res.l.total' : 'res.l.cons')}</span><b id="resTotal">+0G</b></div>` + (r.wallet != null ? lgRow(t('res.l.wallet'), r.wallet + 'G', 'wal2') : '');
+      const tot = $('resTotal'), calm = matchMedia('(prefers-reduced-motion: reduce)').matches; clearInterval(payT);
+      if (calm || r.gold <= 0) tot.textContent = '+' + r.gold + 'G';
+      else { let k = 0; payT = setInterval(() => { k++; tot.textContent = '+' + (k >= 14 ? r.gold : Math.round(r.gold * k / 14)) + 'G'; if (k >= 14) clearInterval(payT); }, 45); }
+    } else { const g = $('resGold'); if (g) g.textContent = r.win ? t('res.goldwin', { g: r.gold, b: r.base, s: r.bonus }) : t('res.golddef', { g: r.gold }); }
     $('resNext').classList.toggle('hidden', !r.hasNext);
+    { const bar = el.result.querySelector('.rpt-bar'); if (bar) bar.classList.toggle('three', !r.hasNext); }
+    const card = el.result.querySelector('.menu-card'); if (card) { card.classList.remove('in'); void card.offsetWidth; card.classList.add('in'); card.scrollTop = 0; }
     el.result.classList.remove('hidden'); $(r.win && r.hasNext ? 'resNext' : 'resRetry').focus();
   };
   ui.hideBanner = () => el.banner.classList.add('hidden');
@@ -315,7 +354,7 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
     setTxt(el.seedTxt, `${t('hud.seed')} ${seed}`);
   };
   const refreshTexts = () => {
-    applyI18n(document);
+    applyI18n(document); tglTxt();
     ui.buildPresets(); h.onTexts && h.onTexts();
     chipRefs.forEach((arr, tm) => arr.forEach((c, ty) => { c.title = `${t('team.' + tm)} ${t('unit.' + ty)}`; }));
     el.btnPause.title = t(h.isPaused() ? 'hud.play' : 'hud.pause');
@@ -331,8 +370,8 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
   $('demoBtn').onclick = () => h.onDemo();
   $('campaignBtn').onclick = () => h.onCampaign(); $('stagesBack').onclick = () => h.onMenu();
   $('menuSettings').onclick = () => ui.openSettings();
-  $('menuCredits').onclick = () => { ui.buildCredits(); el.credits.classList.remove('hidden'); };
-  $('creditsClose').onclick = () => el.credits.classList.add('hidden');
+  $('menuCredits').onclick = () => { ui.buildCredits(); openModal(el.credits, () => $('creditsList')); };
+  $('creditsClose').onclick = () => closeModal(el.credits);
   $('menuLang').onclick = () => { setLang(getLang() === 'ko' ? 'en' : 'ko'); h.onLang(getLang()); };
   $('btnMenu').onclick = () => h.onMenu(); $('bnMenu').onclick = () => h.onMenu();
   $('btnSettings').onclick = () => ui.openSettings();
@@ -346,29 +385,48 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
   // ---- settings ----
   el.setCap.innerHTML = CAPS.map((c) => `<option value="${c}">${c === 'auto' ? '' : c}</option>`).join('');
   const autoOpt = () => { el.setCap.options[0].textContent = `${t('set.auto')} (${h.autoCap()})`; };
+  const paintRange = (inp) => { inp.style.setProperty('--v', (100 * inp.value / (inp.max || 1)) + '%'); const o = inp.closest('.fld'), rv = o && o.querySelector('.rv'); if (rv) rv.textContent = Math.round(100 * inp.value / (inp.max || 1)) + '%'; };
+  const tglTxt = () => document.querySelectorAll('input.tgl').forEach((i) => { i.dataset.on = t('set.on'); i.dataset.off = t('set.off'); });
+  const trap = (sec) => sec.addEventListener('keydown', (e) => { // keep Tab inside an open modal
+    if (e.key !== 'Tab') return;
+    const f = [...sec.querySelectorAll('button:not(:disabled),select,input,a[href],[tabindex="0"]')].filter((x) => x.offsetParent);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+  let lastFocus = null;
+  const openModal = (sec, first) => { if (sec.classList.contains('hidden')) lastFocus = document.activeElement; sec.classList.remove('hidden'); const f = first && first(); if (f) f.focus({ preventScroll: true }); };
+  const closeModal = (sec) => { if (sec.classList.contains('hidden')) return false; sec.classList.add('hidden'); if (lastFocus && lastFocus.isConnected && lastFocus.offsetParent) lastFocus.focus({ preventScroll: true }); lastFocus = null; return true; };
   ui.openSettings = () => {
-    const s = h.settings; autoOpt();
+    const s = h.settings; autoOpt(); tglTxt();
     el.setCap.value = String(s.cap); el.setShake.checked = s.shake;
+    if (el.setFps) el.setFps.checked = !!(h.fpsOn && h.fpsOn());
     const au = audio.settings(); el.setVol.value = au.master; el.setSfx.value = au.sfx; el.setMus.value = au.music; el.setMute.checked = au.mute;
+    [el.setVol, el.setSfx, el.setMus].forEach(paintRange);
     el.setFx.querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.fx === s.fx));
     ui.setCrt(ui.getCrt(), false);
-    el.settings.classList.remove('hidden'); resetBox(false);
+    resetBox(false); openModal(el.settings, () => el.setLang.querySelector('button.on') || el.setLang.querySelector('button'));
   };
-  const closeSettings = () => el.settings.classList.add('hidden');
-  const resetBox = (on) => { $('setResetBox').classList.toggle('hidden', !on); $('setReset').classList.toggle('hidden', on); };
-  $('setReset').onclick = () => resetBox(true); $('setResetNo').onclick = () => resetBox(false);
+  const closeSettings = () => closeModal(el.settings);
+  const resetBox = (on) => { $('setResetBox').classList.toggle('hidden', !on); $('setReset').classList.toggle('hidden', on); if (on) $('setResetNo').focus(); };
+  $('setReset').onclick = () => resetBox(true); $('setResetNo').onclick = () => { resetBox(false); $('setReset').focus(); };
   $('setResetYes').onclick = () => { resetBox(false); closeSettings(); h.onReset(); };
   $('setClose').onclick = () => { resetBox(false); closeSettings(); };
-  el.setLang.onclick = (e) => { const b = e.target.closest('button'); if (b) { setLang(b.dataset.lang); h.onLang(b.dataset.lang); autoOpt(); } };
+  el.setLang.onclick = (e) => { const b = e.target.closest('button'); if (b) { setLang(b.dataset.lang); h.onLang(b.dataset.lang); autoOpt(); tglTxt(); } };
   el.setCap.onchange = () => { h.onSetting('cap', el.setCap.value === 'auto' ? 'auto' : +el.setCap.value); ui.buildPresets(); };
-  el.setVol.oninput = () => audio.set('master', +el.setVol.value); el.setSfx.oninput = () => audio.set('sfx', +el.setSfx.value); el.setMus.oninput = () => audio.set('music', +el.setMus.value);
+  for (const [k, id] of [['master', 'setVol'], ['sfx', 'setSfx'], ['music', 'setMus']]) el[id].oninput = () => { audio.set(k, +el[id].value); paintRange(el[id]); };
   el.setMute.onchange = () => audio.set('mute', el.setMute.checked);
+  if (el.setFps) el.setFps.onchange = () => { if (h.fpsOn && !!h.fpsOn() !== el.setFps.checked) h.onFps(); };
+  const SEC = (k, rows) => `<section class="cl-sec"><h2 class="lbl">${t('credits.sec.' + k)}</h2>${rows}</section>`;
+  const licBadge = (c) => { const by = /BY/i.test(c.license); return `<span class="lic ${by ? 'by' : 'zero'}">[${by ? 'CC-BY' : 'CC0'}]</span>`; };
+  const credRow = (c) => `<article class="ce"><div class="ct"><b>${c.pack}</b>${licBadge(c)}</div><div class="cm">${t('credits.by')}: ${c.author} · ${t('credits.lic')}: ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}</div><a class="cu" href="${c.url}" target="_blank" rel="noopener">${c.url}</a><div class="cf">${t('credits.files')}: ${c.files}</div>${c.attribution ? `<div class="ca">${c.attribution}</div>` : ''}</article>`;
   ui.buildCredits = () => {
-    $('creditsList').innerHTML = [...audio.CREDITS, FONT_CREDIT].map((c) => `<li><b>${c.pack}</b> — ${t('credits.by')}: ${c.author} · ${t('credits.lic')}: ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}<br><small><a href="${c.url}" target="_blank" rel="noopener">${c.url}</a> · ${t('credits.files')}: ${c.files}${c.attribution ? `<br>${c.attribution}` : ''}</small></li>`).join('');
+    const code = { pack: 'Shape Legion', author: 'sigco3111', license: 'MIT', url: 'https://github.com/sigco3111/shape-legion', files: 'js/*.js, css/style.css, index.html' };
+    $('creditsList').innerHTML = SEC('code', credRow(code).replace(/<span class="lic[^>]*>[^<]*<\/span>/, '<span class="lic zero">[MIT]</span>')) + SEC('font', credRow(FONT_CREDIT)) + SEC('sound', audio.CREDITS.map(credRow).join(''));
+    $('creditsList').tabIndex = 0;
   };
   el.setShake.onchange = () => h.onSetting('shake', el.setShake.checked);
   el.setFx.onclick = (e) => { const b = e.target.closest('button'); if (b) { h.onSetting('fx', +b.dataset.fx); ui.openSettings(); } };
-  for (const id of ['settings', 'credits']) el[id].addEventListener('pointerdown', (e) => { if (e.target === el[id]) el[id].classList.add('hidden'); });
+  for (const id of ['settings', 'credits']) { el[id].addEventListener('pointerdown', (e) => { if (e.target === el[id]) closeModal(el[id]); }); trap(el[id]); }
 
   // ---- CRT effect level (html[data-crt]; first applied by the inline script in index.html) ----
   ui.getCrt = () => { try { const v = localStorage.getItem(CRT_KEY), n = v == null ? 1 : +v; return n === 0 || n === 1 || n === 2 ? n : 1; } catch (e) { return 1; } };
@@ -416,8 +474,13 @@ ${low ? `<div class="lg warn"><span>! ${t('stage.low')}</span></div>` : ''}
 
   // ---- keyboard ----
   addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !e.target.matches('select')) { // innermost first: modal -> result -> upgrades -> aim
+      if (closeModal(el.settings) || closeModal(el.credits)) return;
+      if (!el.result.classList.contains('hidden')) { h.onMenu(); return; }
+      if (!el.upgrades.classList.contains('hidden')) { h.onUpgradesBack(); return; }
+      h.onCancelAim(); return;
+    }
     if (e.target.matches('input,select,textarea')) return;
-    if (e.key === 'Escape') { closeSettings(); el.credits.classList.add('hidden'); h.onCancelAim(); return; }
     if (el.hud.classList.contains('hidden')) return;
     const k = e.key.toLowerCase();
     if (k === ' ') { e.preventDefault(); h.onPause(); }

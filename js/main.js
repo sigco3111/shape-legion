@@ -1,18 +1,18 @@
 // Entry: game loop (fixed 30 Hz sim, interpolated render), battle controller, settings, adaptive quality.
-import { Sim } from './sim.js?v=2026111109';
-import { DT, NT, UNITS } from './units.js?v=2026111109';
-import { PRESETS, setupBattle } from './formation.js?v=2026111109';
-import { Renderer } from './render.js?v=2026111109';
-import { createUI } from './ui.js?v=2026111109';
-import { setLang, t, applyI18n } from './i18n.js?v=2026111109';
-import { newSeed } from './rng.js?v=2026111109';
-import * as audio from './audio.js?v=2026111109';
-import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111109';
-import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111109';
-import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111109';
-import { terrainFor } from './terrain.js?v=2026111109';
-import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111109';
-import { SK } from './units.js?v=2026111109';
+import { Sim } from './sim.js?v=2026111110';
+import { DT, NT, UNITS } from './units.js?v=2026111110';
+import { PRESETS, setupBattle } from './formation.js?v=2026111110';
+import { Renderer } from './render.js?v=2026111110';
+import { createUI } from './ui.js?v=2026111110';
+import { setLang, t, applyI18n } from './i18n.js?v=2026111110';
+import { newSeed } from './rng.js?v=2026111110';
+import * as audio from './audio.js?v=2026111110';
+import { STAGES, loadSave, storeSave, resetSave, recordResult, starsFor, rewardFor } from './stages.js?v=2026111110';
+import { buildMods, effStage, buyPop, buyStat, buyTech } from './upgrades.js?v=2026111110';
+import { Deploy, fillSim, fillPreview, drawOverlay } from './deploy.js?v=2026111110';
+import { terrainFor } from './terrain.js?v=2026111110';
+import { SKILLS, newSkillState, canUse, cooldownLeft } from './skills.js?v=2026111110';
+import { SK } from './units.js?v=2026111110';
 
 const params = new URLSearchParams(location.search);
 const KEY = 'shapelegion.settings.v1';
@@ -87,6 +87,7 @@ const ui = createUI({
   onPause: () => setPaused(!G.paused),
   onSpeed: (s) => { G.speed = s; ui.setSpeed(s); },
   onFit: () => { fitView(); G.userCam = false; },
+  fpsOn: () => G.fpsOn,
   onFps: () => { G.fpsOn = !G.fpsOn; settings.fps = G.fpsOn; save(); ui.setFps(G.fpsOn); },
   onZoom: (f) => { R.cam.zoomAt(f, R.vw / 2, R.vh / 2, R.vw, R.vh); },
   onZoomAt: (f, x, y) => R.cam.zoomAt(f, x, y, R.vw, R.vh),
@@ -176,7 +177,8 @@ function finishCampaign(sim) {
   const newBest = stars > SAVE.stars[cp.idx];
   recordResult(SAVE, cp.idx, stars, gold);
   console.log(`[campaign] result stage=${st.id} win=${win} stars=${stars} gold=+${gold} survivors=${sv}/${dv} total=${SAVE.gold}`);
-  ui.showResult({ win, draw: sim.winner < 0, stars, newBest, gold, base: win ? st.reward : 0, bonus: Math.floor(sv * 0.5), time: sim.time, sv, dv, hasNext: win && cp.idx + 1 < STAGES.length && SAVE.unlocked > cp.idx + 1 });
+  let units = 0, foes = 0; for (let ty = 0; ty < NT; ty++) { units += sim.cnt0[ty]; foes += sim.cnt0[NT + ty]; }
+  ui.showResult({ win, draw: sim.winner < 0, stars, newBest, gold, base: win ? st.reward : 0, bonus: Math.floor(sv * 0.5), time: sim.time, sv, dv, idx: cp.idx, units, surv: sim.count(0), foes, kills: foes - sim.count(1), wallet: SAVE.gold, hasNext: win && cp.idx + 1 < STAGES.length && SAVE.unlocked > cp.idx + 1 });
 }
 function setPaused(p) { G.paused = p; ui.setPaused(p); }
 
@@ -298,7 +300,7 @@ resize();
 if (params.get('selftest')) {
   const out = document.getElementById('selftestOut');
   document.getElementById('selftest').classList.remove('hidden'); document.getElementById('menu').classList.add('hidden');
-  import('./selftest.js?v=2026111109').then(async (m) => {
+  import('./selftest.js?v=2026111110').then(async (m) => {
     const lines = [];
     const res = await m.runSelfTest({ full: params.get('full') === '1', log: (s) => { lines.push(s); out.textContent = lines.join('\n'); console.log('[selftest] ' + s); } });
     window.__selftest = res;
