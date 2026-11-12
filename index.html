@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <script>try{var c=localStorage.getItem('shapelegion.crt.v1');c=c==null?1:+c;document.documentElement.dataset.crt=(c===0||c===1||c===2)?c:1}catch(e){document.documentElement.dataset.crt=1}</script>
   <link rel="preload" href="assets/kenney-pixel-square.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2026111109">
+  <link rel="stylesheet" href="css/style.css?v=2026111110">
 </head>
 <body>
   <div id="app">
@@ -58,14 +58,16 @@
       </div>
     </section>
 
-    <!-- upgrades -->
+    <!-- upgrades: war ledger -->
     <section id="upgrades" class="screen hidden">
-      <div class="menu-card up-card">
-        <h1 data-i18n="up.title"></h1>
-        <p class="tag"><span data-i18n="up.gold"></span> <b id="upGold" class="gold">0</b></p>
-        <div class="seg" id="upTabs" role="tablist"><button type="button" data-tab="army" data-i18n="up.army"></button><button type="button" data-tab="tech" data-i18n="up.tech"></button></div>
-        <div id="upBody" class="up-body"></div>
-        <div class="row"><button id="upBack" type="button" class="big alt" data-i18n="up.back"></button></div>
+      <div class="menu-card wl-card">
+        <header class="wl-top">
+          <h1 data-i18n="up.title"></h1>
+          <span class="wl-sub" data-i18n="up.ledger"></span>
+          <p class="wl-gold"><span data-i18n="up.gold"></span> <b id="upGold" class="gold">0G</b></p>
+        </header>
+        <div id="upBody" class="wl-body"></div>
+        <div class="row wl-bar"><button id="upBack" type="button" class="big alt" data-i18n="up.back"></button></div>
       </div>
     </section>
 
@@ -99,12 +101,16 @@
       </div>
     </section>
 
-    <!-- campaign result -->
-    <section id="result" class="screen hidden" role="dialog" aria-live="polite">
-      <div class="menu-card">
-        <h1 id="resTitle"></h1><p id="resSub" class="tag"></p><p id="resStars" class="stars"></p>
-        <p id="resGold" class="gold big-gold"></p>
-        <div class="row"><button id="resRetry" type="button" class="big" data-i18n="res.retry"></button><button id="resNext" type="button" class="big" data-i18n="res.next"></button><button id="resUpg" type="button" class="big" data-i18n="up.btn"></button><button id="resMenu" type="button" class="big alt" data-i18n="banner.menu"></button></div>
+    <!-- campaign result: dispatch report -->
+    <section id="result" class="screen hidden" role="dialog" aria-live="polite" aria-labelledby="resTitle">
+      <div class="menu-card rpt">
+        <p id="resHdr" class="rpt-hd"></p>
+        <div class="stamp"><h1 id="resTitle"></h1></div>
+        <p id="resSub" class="rpt-cap"></p>
+        <div id="resLedger" class="rpt-sec"></div>
+        <div id="resStars" class="stars" role="img"></div>
+        <div id="resPay" class="rpt-sec pay"></div>
+        <div class="row rpt-bar"><button id="resRetry" type="button" class="big" data-i18n="res.retry"></button><button id="resNext" type="button" class="big" data-i18n="res.next"></button><button id="resUpg" type="button" class="big alt" data-i18n="up.btn"></button><button id="resMenu" type="button" class="big alt" data-i18n="res.menu"></button></div>
       </div>
     </section>
 
@@ -141,34 +147,40 @@
       </div>
     </section>
 
-    <!-- settings -->
-    <section id="settings" class="screen hidden" role="dialog" aria-modal="true">
-      <div class="menu-card left">
-        <h1 data-i18n="set.title"></h1>
+    <!-- settings: ledger rows -->
+    <section id="settings" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+      <div class="menu-card left set-card">
+        <h1 id="setTitle" data-i18n="set.title"></h1>
+        <div class="set-scroll">
+        <h2 class="lbl" data-i18n="set.sec.view"></h2>
         <div class="fld"><span data-i18n="set.lang"></span><div class="seg" id="setLang"><button type="button" data-lang="ko">한국어</button><button type="button" data-lang="en">English</button></div></div>
+        <div class="fld"><span data-i18n="set.crt"></span><div class="seg" id="setCrt"><button type="button" data-crt="0" data-i18n="set.crt.0"></button><button type="button" data-crt="1" data-i18n="set.crt.1"></button><button type="button" data-crt="2" data-i18n="set.crt.2"></button></div></div>
+        <div class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></div>
         <label class="fld"><span data-i18n="set.cap"></span><select id="setCap"></select></label>
         <p class="note" data-i18n="set.capnote"></p>
-        <div class="fld"><span data-i18n="set.fx"></span><div class="seg" id="setFx"><button type="button" data-fx="0" data-i18n="set.fx.0"></button><button type="button" data-fx="1" data-i18n="set.fx.1"></button><button type="button" data-fx="2" data-i18n="set.fx.2"></button></div></div>
-        <div class="fld"><span data-i18n="set.crt"></span><div class="seg" id="setCrt"><button type="button" data-crt="0" data-i18n="set.crt.0"></button><button type="button" data-crt="1" data-i18n="set.crt.1"></button><button type="button" data-crt="2" data-i18n="set.crt.2"></button></div></div>
-        <label class="fld"><span data-i18n="set.volume"></span><input id="setVol" type="range" min="0" max="1" step="0.05"></label>
-        <label class="fld"><span data-i18n="set.sfx"></span><input id="setSfx" type="range" min="0" max="1" step="0.05"></label>
-        <label class="fld"><span data-i18n="set.music"></span><input id="setMus" type="range" min="0" max="1" step="0.05"></label>
-        <label class="fld"><span data-i18n="set.mute"></span><input id="setMute" type="checkbox"></label>
-        <label class="fld"><span data-i18n="set.motion"></span><input id="setShake" type="checkbox"></label>
-        <div class="reset"><button id="setReset" type="button" class="danger" data-i18n="set.reset"></button>
-          <div id="setResetBox" class="hidden"><p class="note" data-i18n="set.reset.q"></p><div class="row"><button id="setResetYes" type="button" class="danger" data-i18n="set.reset.yes"></button><button id="setResetNo" type="button" data-i18n="set.reset.no"></button></div></div></div>
-        <div class="row"><button id="setClose" type="button" class="big" data-i18n="set.close"></button></div>
+        <label class="fld"><span data-i18n="set.motion"></span><input id="setShake" type="checkbox" class="tgl"></label>
+        <label class="fld"><span data-i18n="set.fps"></span><input id="setFps" type="checkbox" class="tgl"></label>
+        <h2 class="lbl" data-i18n="set.sec.sound"></h2>
+        <label class="fld sld"><span data-i18n="set.volume"></span><input id="setVol" type="range" min="0" max="1" step="0.05"><b class="rv"></b></label>
+        <label class="fld sld"><span data-i18n="set.sfx"></span><input id="setSfx" type="range" min="0" max="1" step="0.05"><b class="rv"></b></label>
+        <label class="fld sld"><span data-i18n="set.music"></span><input id="setMus" type="range" min="0" max="1" step="0.05"><b class="rv"></b></label>
+        <label class="fld"><span data-i18n="set.mute"></span><input id="setMute" type="checkbox" class="tgl"></label>
+        <h2 class="lbl" data-i18n="set.sec.data"></h2>
+        <div class="reset"><button id="setReset" type="button" class="danger br" data-i18n="set.reset"></button>
+          <div id="setResetBox" class="hidden"><p class="note" data-i18n="set.reset.q"></p><div class="row"><button id="setResetYes" type="button" class="danger br" data-i18n="set.reset.yes"></button><button id="setResetNo" type="button" class="br" data-i18n="set.reset.no"></button></div></div></div>
+        </div>
+        <div class="row set-bar"><button id="setClose" type="button" class="big" data-i18n="set.close"></button></div>
       </div>
     </section>
 
-    <!-- credits -->
-    <section id="credits" class="screen hidden" role="dialog" aria-modal="true">
-      <div class="menu-card left">
-        <h1 data-i18n="credits.title"></h1>
-        <p data-i18n="credits.body"></p>
-        <ul id="creditsList" class="clist"></ul>
+    <!-- credits: terminal list -->
+    <section id="credits" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="crTitle">
+      <div class="menu-card left cr-card">
+        <h1 id="crTitle" data-i18n="credits.title"></h1>
+        <p class="note cr-body" data-i18n="credits.body"></p>
+        <div id="creditsList" class="cl-scroll" tabindex="0" role="region" aria-label="credits"></div>
         <p class="note"><a href="CREDITS.md" target="_blank" rel="noopener">CREDITS.md</a></p>
-        <div class="row"><button id="creditsClose" type="button" class="big" data-i18n="set.close"></button></div>
+        <div class="row set-bar"><button id="creditsClose" type="button" class="big" data-i18n="set.close"></button></div>
       </div>
     </section>
 
@@ -176,6 +188,6 @@
     <div id="toast" class="hidden" role="status"></div>
   </div>
   <div id="crt" aria-hidden="true"></div>
-  <script type="module" src="js/main.js?v=2026111109"></script>
+  <script type="module" src="js/main.js?v=2026111110"></script>
 </body>
 </html>
